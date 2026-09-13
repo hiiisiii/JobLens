@@ -21,10 +21,35 @@ function confidenceForJob(job: JobPosting): Confidence {
   return "LOW";
 }
 
+function targetsEarlyCareer(profile: CandidateProfile): boolean {
+  const levels = profile.targetLevels.map(key);
+  return levels.some((level) => ["entry", "junior", "intern", "new grad", "신입", "주니어", "인턴"].includes(level));
+}
+
 function hardGates(job: JobPosting, profile: CandidateProfile): HardGateCheck[] {
   const checks: HardGateCheck[] = [];
   if (job.status === "closed") checks.push({ id: "posting-open", result: "FAIL", reason: "posting is closed", evidenceIds: [] });
   else checks.push({ id: "posting-open", result: job.status === "unknown" ? "FLAG" : "PASS", reason: job.status === "unknown" ? "posting status is unknown" : "posting is open", evidenceIds: [] });
+
+  const earlyCareer = targetsEarlyCareer(profile);
+  if (earlyCareer && job.experienceRequirement?.minYears !== undefined) {
+    if (job.experienceRequirement.minYears >= 5) {
+      checks.push({ id: "experience-requirement", result: "FAIL", reason: `role requires at least ${job.experienceRequirement.minYears} years of experience`, evidenceIds: [] });
+    } else if (job.experienceRequirement.minYears >= 3) {
+      checks.push({ id: "experience-requirement", result: "FLAG", reason: `role requires at least ${job.experienceRequirement.minYears} years; review before applying as an early-career candidate`, evidenceIds: [] });
+    }
+  }
+
+  if (earlyCareer) {
+    const title = key(job.title);
+    const seniorTokens = ["senior", "principal", "staff engineer", "시니어", "수석"];
+    const leadTokens = ["tech lead", "team lead", "리드"];
+    if (seniorTokens.some((token) => title.includes(token))) {
+      checks.push({ id: "seniority-title", result: "FAIL", reason: "title explicitly indicates a senior-level role", evidenceIds: [] });
+    } else if (leadTokens.some((token) => title.includes(token))) {
+      checks.push({ id: "seniority-title", result: "FLAG", reason: "title indicates a lead-level role", evidenceIds: [] });
+    }
+  }
 
   const locationText = job.locations.map(key).join(" ");
   for (const dealBreaker of profile.dealBreakers) {

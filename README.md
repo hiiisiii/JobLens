@@ -19,7 +19,7 @@ It is designed around a simple interaction model: users can talk to an AI client
 
 ## Current implementation
 
-JobLens is currently `v0.1.0-alpha`.
+JobLens is currently `v0.1.0-alpha.4`.
 
 Implemented foundations include:
 
@@ -29,20 +29,60 @@ Implemented foundations include:
 - manual job ingestion;
 - canonical-URL/content based duplicate assessment;
 - configurable ranking with Hard Gate + weighted Fit Score + independent Confidence;
+- early-career hard gates for clearly senior roles and high minimum-experience requirements;
 - discovery orchestration where one failed source does not fail the whole run;
 - persistent discovery state through a local JSON-directory storage adapter;
 - private workspace initialization for jobs, opportunities, applications, research, logs, cache, and documents;
 - canonical job identity preservation when later sources rediscover the same posting;
+- validated private CandidateProfile import with overwrite protection;
+- executable `setup`, manual `discover`, and `rank` CLI commands;
 - an agent-agnostic `SearchProvider` boundary for web discovery;
 - a Saramin Open API adapter for structured Korean job discovery;
 - runtime configuration and storage ports that keep framework logic independent from persistence;
 - CI typecheck and unit tests.
 
+## CLI quick start
+
+```bash
+npm install
+npm run build
+
+# choose a private workspace outside the public repository
+export JOBLENS_WORKSPACE="$HOME/.joblens/my-search"
+
+# initialize an empty profile
+node dist/cli/bin.js setup
+
+# or import an evidence-backed private CandidateProfile
+node dist/cli/bin.js setup --profile /private/path/candidate-profile.json
+
+# explicit replacement is required if a profile already exists
+node dist/cli/bin.js setup --profile /private/path/candidate-profile-v2.json --replace
+
+# alpha.4 manual discovery path
+node dist/cli/bin.js discover /private/path/posting.json
+
+# rank persisted postings
+node dist/cli/bin.js rank
+```
+
+The package also exposes a `joblens` bin entrypoint for installed/package-linked use.
+
 ## Private workspace
 
 A user workspace is deliberately separate from the public repository. `initializeWorkspace()` creates the private runtime directories and persistent stores under the configured workspace root. The current alpha uses one JSON file per persisted entity with atomic replacement writes; the storage contract remains swappable so a later SQLite adapter can be introduced without changing the domain workflow.
 
-Do not put a real workspace inside a public clone. Real resumes, application history, private preferences, and credentials should stay outside the repository.
+Do not put a real workspace inside a public clone. Real resumes, application history, private preferences, candidate profiles, and credentials should stay outside the repository.
+
+## Ranking semantics
+
+JobLens deliberately separates three concepts:
+
+- **Hard Gate**: PASS / FLAG / FAIL eligibility or risk checks.
+- **Fit Score**: weighted 0–100 comparison only when a role has not failed the hard gate.
+- **Confidence**: how strongly the available evidence supports the assessment.
+
+For an early-career profile, a role that explicitly requires five or more years is failed before fit scoring. A three-to-four-year minimum is flagged for review. Explicit senior-level titles are also prevented from surfacing as ordinary high-scoring junior matches.
 
 ## Saramin adapter
 
