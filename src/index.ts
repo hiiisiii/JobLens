@@ -10,6 +10,7 @@ export * from "./storage/store.js";
 export * from "./storage/memory-store.js";
 export * from "./storage/json-directory-store.js";
 export * from "./workspace/workspace.js";
+export * from "./profile/candidate-profile-file.js";
 export * from "./search/search-provider.js";
 export * from "./sources/source-adapter.js";
 export * from "./sources/manual/manual-source.js";
