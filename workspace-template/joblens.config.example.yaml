@@ -9,6 +9,9 @@ ranking:
 sources:
   manual:
     enabled: true
+  saramin:
+    enabled: false
+    # Keep the real key in SARAMIN_ACCESS_KEY, never in this file.
   webSearch:
     enabled: true
 privacy:
