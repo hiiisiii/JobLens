@@ -32,6 +32,7 @@ export * from "./application/preparation-service.js";
 export * from "./application/review-service.js";
 export * from "./application/outcome-service.js";
 export * from "./tooling/tool-contract.js";
+export * from "./tooling/joblens-tool-service.js";
 export * from "./cli/index.js";
 export * from "./cli/discovery-options.js";
 export * from "./cli/outcome-command.js";
