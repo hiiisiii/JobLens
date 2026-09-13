@@ -19,7 +19,7 @@ It is designed around a simple interaction model: users can talk to an AI client
 
 ## Current implementation
 
-JobLens is currently `v0.1.0-alpha.8`.
+JobLens is currently `v0.1.0-alpha.9`.
 
 Implemented foundations include:
 
@@ -34,8 +34,11 @@ Implemented foundations include:
 - separate reviewer result and automated grounding audit before READY;
 - content-hash and frozen-evidence checks that force `REVISION_REQUIRED` when grounding blockers exist;
 - revision lifecycle support back to PREPARING without erasing history;
+- explicit user-confirmed READY -> APPLIED recording with immutable SubmissionSnapshot metadata;
+- event-based interview, offer, completion, and withdrawal lifecycle tracking;
+- idempotent outcome event handling so retries do not duplicate lifecycle history;
 - private workspace storage for jobs, evaluations, opportunities, research, evidence, applications, packages, and reviews;
-- executable `setup`, `discover`, `rank`, `research`, `prepare`, and `review` CLI commands;
+- executable `setup`, `discover`, `rank`, `research`, `prepare`, `review`, and `outcome` CLI commands;
 - agent-agnostic tool contracts for conversational clients;
 - CI typecheck and unit tests.
 
@@ -81,6 +84,11 @@ node dist/cli/bin.js prepare \
 node dist/cli/bin.js review \
   application:example \
   --input /private/path/review.json
+
+# 7. after the user actually submits outside JobLens, record APPLIED/outcomes
+node dist/cli/bin.js outcome \
+  application:example \
+  --input /private/path/outcome.json
 ```
 
 The package also exposes a `joblens` bin entrypoint for installed/package-linked use.
@@ -116,6 +124,14 @@ Preparation freezes the exact CandidateProfile version, JobPosting, and CompanyR
 `review` is a separate step. See `workspace-template/review.example.json`. It combines an independent reviewer verdict with an automatic grounding audit. READY requires reviewer `PASS` and zero grounding blockers. Changed artifact content, claims that point outside the frozen evidence set, or other grounding failures force `REVISION_REQUIRED`.
 
 The core grounding audit validates the declared factual-claim inventory; it does not claim to infer every factual sentence from arbitrary prose by itself. A conversational/AI reviewer should surface undeclared or unsupported claims as BLOCKER findings before marking a package PASS.
+
+## Submission and outcome lifecycle
+
+JobLens does **not** submit applications in v0.1. The user submits through the external portal, then records the result with `outcome`. See `workspace-template/outcome.example.json`.
+
+`APPLIED` requires explicit `userConfirmed: true` and can only transition from READY. At that point JobLens creates a SubmissionSnapshot containing the candidate profile version plus artifact versions/hashes from the selected application package. Later interview rounds are stored as lifecycle events rather than hard-coded interview states. Offer, completion, rejection/no-response, and withdrawal remain explicit application outcomes.
+
+Repeated delivery of the same outcome event is idempotent and does not duplicate lifecycle history.
 
 ## Saramin discovery
 
