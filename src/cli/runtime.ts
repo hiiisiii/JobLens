@@ -1,4 +1,4 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { CandidateProfile } from "../core/domain/candidate-profile.js";
 import { initializeWorkspace } from "../workspace/workspace.js";
@@ -6,6 +6,7 @@ import { rankJobs } from "../ranking/job-ranker.js";
 import { ManualSource, type ManualJobInput } from "../sources/manual/manual-source.js";
 import type { SourceContext } from "../sources/source-adapter.js";
 import { materializeJobPosting } from "../discovery/orchestrator.js";
+import { readCandidateProfileFile, writeCandidateProfileFile } from "../profile/candidate-profile-file.js";
 
 export interface CliEnvironment {
   JOBLENS_WORKSPACE?: string;
@@ -15,22 +16,47 @@ function workspaceRoot(env: CliEnvironment): string {
   return resolve(env.JOBLENS_WORKSPACE ?? ".joblens-workspace");
 }
 
+function optionValue(args: string[], name: string): string | undefined {
+  const index = args.indexOf(name);
+  if (index < 0) return undefined;
+  return args[index + 1];
+}
+
 async function loadJson<T>(path: string): Promise<T> {
   return JSON.parse(await readFile(path, "utf8")) as T;
 }
 
 async function loadProfile(root: string): Promise<CandidateProfile> {
-  return loadJson<CandidateProfile>(join(root, "profile", "candidate-profile.json"));
+  return readCandidateProfileFile(join(root, "profile", "candidate-profile.json"));
 }
 
-export async function setupCommand(env: CliEnvironment): Promise<string> {
+export async function setupCommand(args: string[], env: CliEnvironment): Promise<string> {
   const root = workspaceRoot(env);
   await initializeWorkspace(root);
   const profilePath = join(root, "profile", "candidate-profile.json");
+  const importPath = optionValue(args, "--profile");
+  const replace = args.includes("--replace");
+
+  if (args.includes("--profile") && !importPath) throw new Error("--profile requires a JSON file path");
+
+  if (importPath) {
+    const profile = await readCandidateProfileFile(resolve(importPath));
+    try {
+      await writeCandidateProfileFile(profilePath, profile, { replace });
+    } catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException).code === "EEXIST") {
+        throw new Error(`candidate profile already exists at ${profilePath}; use --replace to overwrite it`);
+      }
+      throw error;
+    }
+    return `workspace ready: ${root}\nprofile imported: ${profilePath}\nprofile version: ${profile.version}`;
+  }
+
   try {
-    await readFile(profilePath, "utf8");
+    await readCandidateProfileFile(profilePath);
     return `workspace ready: ${root}\nprofile preserved: ${profilePath}`;
-  } catch {
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     const now = new Date().toISOString();
     const sample: CandidateProfile = {
       profileId: "candidate",
@@ -44,7 +70,7 @@ export async function setupCommand(env: CliEnvironment): Promise<string> {
       dealBreakers: [],
       documentRefs: [],
     };
-    await writeFile(profilePath, `${JSON.stringify(sample, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
+    await writeCandidateProfileFile(profilePath, sample);
     return `workspace initialized: ${root}\nedit profile: ${profilePath}`;
   }
 }
@@ -85,7 +111,7 @@ export async function rankCommand(env: CliEnvironment): Promise<string> {
 }
 
 export async function executeCommand(command: string, args: string[], env: CliEnvironment = process.env): Promise<string> {
-  if (command === "setup") return setupCommand(env);
+  if (command === "setup") return setupCommand(args, env);
   if (command === "discover") return discoverManualCommand(args, env);
   if (command === "rank") return rankCommand(env);
   throw new Error(`${command} is defined but not executable yet`);
