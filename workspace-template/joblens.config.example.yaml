@@ -1,0 +1,15 @@
+version: 1
+locale: ko-KR
+ranking:
+  scoreBands:
+    veryStrong: 80
+    strong: 70
+    viable: 60
+    stretch: 50
+sources:
+  manual:
+    enabled: true
+  webSearch:
+    enabled: true
+privacy:
+  publicRepoContainsPrivateData: false
