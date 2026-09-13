@@ -1,0 +1,20 @@
+{
+  "name": "joblens",
+  "version": "0.1.0-alpha.0",
+  "private": false,
+  "type": "module",
+  "description": "Open-source AI workflow for discovering, researching, ranking, and preparing job applications across multiple sources.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test tests/unit/*.test.mjs"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}
