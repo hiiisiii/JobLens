@@ -1,7 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { mkdir } from "node:fs/promises";
-import type { CandidateProfile, EvidenceBackedSkill } from "../core/domain/candidate-profile.js";
+import type { CandidateProfile, EvidenceBackedSkill, ExperienceEvidence } from "../core/domain/candidate-profile.js";
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
@@ -11,6 +11,21 @@ function isSkill(value: unknown): value is EvidenceBackedSkill {
   if (!value || typeof value !== "object") return false;
   const skill = value as Partial<EvidenceBackedSkill>;
   return typeof skill.name === "string" && skill.name.trim().length > 0 && isStringArray(skill.evidenceIds);
+}
+
+function isExperienceEvidence(value: unknown): value is ExperienceEvidence {
+  if (!value || typeof value !== "object") return false;
+  const experience = value as Partial<ExperienceEvidence>;
+  return typeof experience.experienceId === "string"
+    && experience.experienceId.trim().length > 0
+    && typeof experience.title === "string"
+    && experience.title.trim().length > 0
+    && typeof experience.summary === "string"
+    && experience.summary.trim().length > 0
+    && isStringArray(experience.capabilities)
+    && isStringArray(experience.technologies)
+    && isStringArray(experience.evidenceIds)
+    && experience.evidenceIds.length > 0;
 }
 
 export function validateCandidateProfile(value: unknown): string[] {
@@ -24,6 +39,9 @@ export function validateCandidateProfile(value: unknown): string[] {
   if (!isStringArray(profile.targetRoles)) errors.push("targetRoles must be a string array");
   if (!isStringArray(profile.targetLevels)) errors.push("targetLevels must be a string array");
   if (!Array.isArray(profile.skills) || !profile.skills.every(isSkill)) errors.push("skills must contain { name, evidenceIds[] } objects");
+  if (profile.experienceEvidence !== undefined && (!Array.isArray(profile.experienceEvidence) || !profile.experienceEvidence.every(isExperienceEvidence))) {
+    errors.push("experienceEvidence must contain { experienceId, title, summary, capabilities[], technologies[], evidenceIds[] } objects");
+  }
   if (!isStringArray(profile.locations)) errors.push("locations must be a string array");
   if (!isStringArray(profile.mustHaves)) errors.push("mustHaves must be a string array");
   if (!isStringArray(profile.dealBreakers)) errors.push("dealBreakers must be a string array");
