@@ -22,5 +22,8 @@ export * from "./discovery/persistence.js";
 export * from "./discovery/discovery-service.js";
 export * from "./ranking/scoring-engine.js";
 export * from "./ranking/default-policy.js";
+export * from "./ranking/job-ranker.js";
 export * from "./application/transition-service.js";
 export * from "./tooling/tool-contract.js";
+export * from "./cli/index.js";
+export * from "./cli/runtime.js";
