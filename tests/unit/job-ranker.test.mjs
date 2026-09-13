@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { rankJob, rankJobs } from "../../dist/ranking/job-ranker.js";
+import { detectJobCapabilitySignals } from "../../dist/ranking/experience-matching.js";
 
 const profile = {
   profileId: "candidate-1",
@@ -27,7 +28,7 @@ const profileWithExperience = {
       experienceId: "project:authorization-api",
       title: "Authorization and state backend project",
       summary: "Implemented member authorization, invitation state transitions, transaction boundaries, and REST APIs.",
-      capabilities: ["api-design", "authorization", "state-management", "transaction"],
+      capabilities: ["api-design", "authorization", "state-management", "transaction", "data-modeling"],
       technologies: ["Node.js", "TypeScript", "Express", "PostgreSQL", "Prisma"],
       evidenceIds: ["portfolio:project-a", "pr:33"],
     },
@@ -35,7 +36,7 @@ const profileWithExperience = {
       experienceId: "project:data-integrity",
       title: "Data integrity and validation backend project",
       summary: "Implemented relational data workflows, validation, tests, and API documentation.",
-      capabilities: ["api-design", "data-integrity", "validation", "testing", "api-documentation", "integration-debugging"],
+      capabilities: ["api-design", "data-integrity", "validation", "testing", "api-documentation", "integration-debugging", "data-modeling"],
       technologies: ["Node.js", "TypeScript", "Express", "PostgreSQL", "Prisma", "Jest", "OpenAPI"],
       evidenceIds: ["portfolio:project-b", "pr:30"],
     },
@@ -78,7 +79,7 @@ test("structured experience evidence raises relevant-experience confidence and c
     fullText: "Design REST APIs, enforce authorization, handle transaction boundaries, validate requests, and maintain integration tests with Node.js, TypeScript and PostgreSQL.",
   }), profileWithExperience);
   const relevant = dimension(result, "relevantExperience");
-  assert.equal(result.assessment.policyVersion, "v0.3");
+  assert.equal(result.assessment.policyVersion, "v0.4");
   assert.equal((relevant?.score ?? 0) >= 90, true);
   assert.equal(relevant?.evidenceConfidence, "HIGH");
   assert.equal(relevant?.evidenceIds.includes("portfolio:project-a"), true);
@@ -98,6 +99,46 @@ test("structured relevant experience distinguishes actual project evidence from 
   }), skillOnlyProfile);
   assert.equal(dimension(result, "requiredSkills")?.score, 100);
   assert.equal((dimension(result, "relevantExperience")?.score ?? 100) < 60, true);
+});
+
+test("technology-only structured evidence is shrunk instead of becoming 100 relevant experience", () => {
+  const result = rankJob(job({
+    fullText: "Node.js TypeScript PostgreSQL",
+  }), profileWithExperience);
+  const relevant = dimension(result, "relevantExperience");
+  assert.equal(relevant?.score, 75);
+  assert.equal(relevant?.evidenceConfidence, "MEDIUM");
+  assert.match(relevant?.rationale ?? "", /conservatively shrunk toward neutral/);
+});
+
+test("live Korea JD wording surfaces unsupported incident architecture and performance responsibilities", () => {
+  const liveStyle = job({
+    title: "백엔드 개발자 (신입/경력)",
+    experienceRequirement: { minYears: 2, rawText: "프로젝트 또는 실무 경력 2년 이상 또는 동등 수준" },
+    fullText: "Node.js 기반 백엔드 API 서버 개발. 서비스 성능 개선, 서버 인프라 운영, 장애 대응 및 문제 해결, 시스템 아키텍처 설계.",
+  });
+  const signals = detectJobCapabilitySignals(liveStyle);
+  assert.equal(signals.includes("api-design"), true);
+  assert.equal(signals.includes("performance-optimization"), true);
+  assert.equal(signals.includes("incident-response"), true);
+  assert.equal(signals.includes("system-architecture"), true);
+
+  const result = rankJob(liveStyle, profileWithExperience);
+  assert.equal(result.assessment.hardGate, "PASS");
+  assert.equal((dimension(result, "relevantExperience")?.score ?? 100) < 70, true);
+});
+
+test("live AI backend wording detects data modeling migration performance and LLM integration separately", () => {
+  const liveStyle = job({
+    title: "[AX] [인턴] 백엔드 개발자",
+    experienceRequirement: { minYears: 0, rawText: "인턴 신입" },
+    fullText: "Node.js TypeScript 기반 백엔드. PostgreSQL 데이터 모델링과 성능 최적화, 마이그레이션 정책을 수립하고 LLM API, RAG, 함수 호출, 에이전트 워크플로우를 구현합니다.",
+  });
+  const signals = detectJobCapabilitySignals(liveStyle);
+  assert.equal(signals.includes("data-modeling"), true);
+  assert.equal(signals.includes("performance-optimization"), true);
+  assert.equal(signals.includes("database-migration"), true);
+  assert.equal(signals.includes("llm-integration"), true);
 });
 
 test("five-year minimum requirement fails the hard gate for an early-career target", () => {
