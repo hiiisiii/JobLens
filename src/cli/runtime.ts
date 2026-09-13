@@ -11,10 +11,12 @@ import { reviewApplication, type ReviewInput } from "../application/review-servi
 import { ManualSource, type ManualJobInput } from "../sources/manual/manual-source.js";
 import { SaraminSource } from "../sources/saramin/saramin-source.js";
 import type { SourceContext } from "../sources/source-adapter.js";
+import { materializeDiscoveryHit, type VerifiedPostingInput } from "../discovery/materialization-service.js";
 import { materializeJobPosting } from "../discovery/orchestrator.js";
 import { runDiscovery } from "../discovery/discovery-service.js";
 import { readCandidateProfileFile, writeCandidateProfileFile } from "../profile/candidate-profile-file.js";
 import { parseDiscoverRequest } from "./discovery-options.js";
+import { outcomeCommand } from "./outcome-command.js";
 
 export interface CliEnvironment extends RuntimeEnvironment {}
 
@@ -125,6 +127,7 @@ async function discoverSaramin(args: string[], env: CliEnvironment): Promise<str
     query: request.query,
     context,
     jobStore: stores.jobs,
+    discoveryHitStore: stores.discoveryHits,
   });
 
   if (result.discovery.jobs.length === 0 && result.discovery.sourceFailures.length > 0) {
@@ -135,6 +138,7 @@ async function discoverSaramin(args: string[], env: CliEnvironment): Promise<str
   const lines = [
     `Saramin discovery complete: ${result.discovery.jobs.length} materialized job(s)`,
     `persisted: ${result.persistence.created} created, ${result.persistence.updated} updated`,
+    `discovery hits: ${result.hits.created} created, ${result.hits.updated} updated`,
   ];
   if (result.discovery.warnings.length > 0) lines.push(`warnings: ${result.discovery.warnings.length}`);
   if (result.persistence.possibleDuplicates.length > 0) lines.push(`possible duplicates: ${result.persistence.possibleDuplicates.length}`);
@@ -145,6 +149,31 @@ export async function discoverCommand(args: string[], env: CliEnvironment): Prom
   const request = parseDiscoverRequest(args);
   if (request.kind === "manual") return discoverManual(request.path, env);
   return discoverSaramin(args, env);
+}
+
+export async function materializeCommand(args: string[], env: CliEnvironment): Promise<string> {
+  const hitId = args[0];
+  if (!hitId || hitId.startsWith("--")) throw new Error("materialize requires a discovery hit id as the first argument");
+  const inputPath = optionValue(args, "--input");
+  if (!inputPath || inputPath.startsWith("--")) throw new Error("materialize requires --input <verified-posting.json>");
+
+  const root = workspaceRoot(env);
+  const stores = await initializeWorkspace(root);
+  const verifiedPosting = await loadJson<VerifiedPostingInput>(resolve(inputPath));
+  const result = await materializeDiscoveryHit({
+    hitId,
+    verifiedPosting,
+    discoveryHitStore: stores.discoveryHits,
+    jobStore: stores.jobs,
+    now: new Date().toISOString(),
+  });
+
+  return [
+    `discovery hit: ${result.hit.hitId} -> ${result.hit.status}`,
+    `job: ${result.job.id}  ${result.job.companyName} — ${result.job.title}`,
+    `persistence: ${result.persistence.created} created, ${result.persistence.updated} updated`,
+    `idempotent: ${result.idempotent}`,
+  ].join("\n");
 }
 
 export async function rankCommand(env: CliEnvironment): Promise<string> {
@@ -271,9 +300,11 @@ export async function reviewCommand(args: string[], env: CliEnvironment): Promis
 export async function executeCommand(command: string, args: string[], env: CliEnvironment = process.env): Promise<string> {
   if (command === "setup") return setupCommand(args, env);
   if (command === "discover") return discoverCommand(args, env);
+  if (command === "materialize") return materializeCommand(args, env);
   if (command === "rank") return rankCommand(env);
   if (command === "research") return researchCommand(args, env);
   if (command === "prepare") return prepareCommand(args, env);
   if (command === "review") return reviewCommand(args, env);
-  throw new Error(`${command} is defined but not executable yet`);
+  if (command === "outcome") return outcomeCommand(args, env);
+  throw new Error(`unknown executable command: ${command}`);
 }
