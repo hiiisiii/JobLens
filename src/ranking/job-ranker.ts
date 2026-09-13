@@ -2,18 +2,13 @@ import type { CandidateProfile } from "../core/domain/candidate-profile.js";
 import type { JobPosting } from "../core/domain/job-posting.js";
 import type { Confidence, HardGateResult } from "../core/domain/common.js";
 import { DEFAULT_FIT_WEIGHTS, DEFAULT_RANKING_POLICY_VERSION } from "./default-policy.js";
+import {
+  locationMatchScore,
+  normalizeMatchText,
+  roleMatchScore,
+  skillCoverage,
+} from "./matching.js";
 import { evaluateFit, type FitAssessmentResult, type FitDimensionInput, type HardGateCheck } from "./scoring-engine.js";
-
-function key(value: string): string {
-  return value.normalize("NFKC").toLocaleLowerCase("en-US").replace(/[^\p{L}\p{N}+#.]+/gu, " ").trim();
-}
-
-function overlap(required: string[], candidate: string[]): number {
-  if (required.length === 0) return 100;
-  const candidateKeys = candidate.map(key);
-  const matched = required.filter((item) => candidateKeys.some((skill) => skill.includes(key(item)) || key(item).includes(skill))).length;
-  return Math.round((matched / required.length) * 100);
-}
 
 function confidenceForJob(job: JobPosting): Confidence {
   if (job.contentCompleteness === "full" && job.requiredSkills.length > 0) return "HIGH";
@@ -22,7 +17,7 @@ function confidenceForJob(job: JobPosting): Confidence {
 }
 
 function targetsEarlyCareer(profile: CandidateProfile): boolean {
-  const levels = profile.targetLevels.map(key);
+  const levels = profile.targetLevels.map(normalizeMatchText);
   return levels.some((level) => ["entry", "junior", "intern", "new grad", "신입", "주니어", "인턴"].includes(level));
 }
 
@@ -41,7 +36,7 @@ function hardGates(job: JobPosting, profile: CandidateProfile): HardGateCheck[] 
   }
 
   if (earlyCareer) {
-    const title = key(job.title);
+    const title = normalizeMatchText(job.title);
     const seniorTokens = ["senior", "principal", "staff engineer", "시니어", "수석"];
     const leadTokens = ["tech lead", "team lead", "리드"];
     if (seniorTokens.some((token) => title.includes(token))) {
@@ -51,39 +46,47 @@ function hardGates(job: JobPosting, profile: CandidateProfile): HardGateCheck[] 
     }
   }
 
-  const locationText = job.locations.map(key).join(" ");
+  const locationText = job.locations.map(normalizeMatchText).join(" ");
   for (const dealBreaker of profile.dealBreakers) {
-    const normalized = key(dealBreaker);
-    if (normalized && (locationText.includes(normalized) || key(job.fullText).includes(normalized))) {
+    const normalized = normalizeMatchText(dealBreaker);
+    if (normalized && (locationText.includes(normalized) || normalizeMatchText(job.fullText).includes(normalized))) {
       checks.push({ id: `deal-breaker:${normalized}`, result: "FAIL", reason: `candidate deal-breaker matched: ${dealBreaker}`, evidenceIds: [] });
     }
   }
   return checks;
 }
 
-function roleScore(job: JobPosting, profile: CandidateProfile): number {
-  const title = key(job.title);
-  if (profile.targetRoles.some((role) => title.includes(key(role)) || key(role).includes(title))) return 100;
-  if (profile.targetRoles.some((role) => key(role).split(" ").some((token) => token.length > 2 && title.includes(token)))) return 75;
-  return 35;
+function levelScore(job: JobPosting, profile: CandidateProfile): number {
+  if (!targetsEarlyCareer(profile)) return 75;
+  const signal = normalizeMatchText(`${job.title} ${job.experienceRequirement?.rawText ?? ""}`);
+  const earlyCareerSignals = ["entry", "junior", "intern", "new grad", "신입", "주니어", "인턴", "경력 무관", "경력무관"];
+  if (earlyCareerSignals.some((token) => signal.includes(token))) return 100;
+
+  const minYears = job.experienceRequirement?.minYears;
+  if (minYears === undefined) return 75;
+  if (minYears <= 1) return 100;
+  if (minYears === 2) return 80;
+  if (minYears <= 4) return 40;
+  return 0;
 }
 
 function dimensions(job: JobPosting, profile: CandidateProfile): FitDimensionInput[] {
   const evidenceConfidence = confidenceForJob(job);
   const skills = profile.skills.map((skill) => skill.name);
-  const requiredScore = overlap(job.requiredSkills, skills);
-  const preferredScore = overlap(job.preferredSkills, skills);
-  const locationScore = profile.locations.length === 0 || job.locations.length === 0
-    ? 70
-    : job.locations.some((location) => profile.locations.some((preferred) => key(location).includes(key(preferred)) || key(preferred).includes(key(location)))) ? 100 : 50;
+  const requiredScore = skillCoverage(job.requiredSkills, skills);
+  const preferredScore = job.preferredSkills.length === 0 ? undefined : skillCoverage(job.preferredSkills, skills);
+  const roleScore = roleMatchScore(job.title, profile.targetRoles);
+  const roleAndLevelScore = Math.round((roleScore * 0.8) + (levelScore(job, profile) * 0.2));
+  const locationScore = locationMatchScore(job.locations, profile.locations);
+  const adjacencyScore = preferredScore === undefined ? requiredScore : Math.max(requiredScore, preferredScore);
 
   return [
-    { id: "roleAndLevel", label: "Role and level", weight: DEFAULT_FIT_WEIGHTS.roleAndLevel, score: roleScore(job, profile), evidenceConfidence, evidenceIds: [] },
+    { id: "roleAndLevel", label: "Role and level", weight: DEFAULT_FIT_WEIGHTS.roleAndLevel, score: roleAndLevelScore, evidenceConfidence, evidenceIds: [] },
     { id: "requiredSkills", label: "Required skills", weight: DEFAULT_FIT_WEIGHTS.requiredSkills, score: requiredScore, evidenceConfidence, evidenceIds: [] },
-    { id: "relevantExperience", label: "Relevant experience", weight: DEFAULT_FIT_WEIGHTS.relevantExperience, score: requiredScore, evidenceConfidence: "MEDIUM", evidenceIds: [], rationale: "v0.1 proxy: required-skill evidence; structured experience matching follows" },
+    { id: "relevantExperience", label: "Relevant experience", weight: DEFAULT_FIT_WEIGHTS.relevantExperience, score: requiredScore, evidenceConfidence: "MEDIUM", evidenceIds: [], rationale: "v0.2 proxy: required-skill evidence; structured experience matching follows" },
     { id: "evidenceStrength", label: "Evidence strength", weight: DEFAULT_FIT_WEIGHTS.evidenceStrength, score: evidenceConfidence === "HIGH" ? 100 : evidenceConfidence === "MEDIUM" ? 70 : 35, evidenceConfidence, evidenceIds: [] },
-    { id: "careerAlignment", label: "Career alignment", weight: DEFAULT_FIT_WEIGHTS.careerAlignment, score: Math.round((roleScore(job, profile) + locationScore) / 2), evidenceConfidence: "MEDIUM", evidenceIds: [] },
-    { id: "adjacencyAndLearning", label: "Adjacency and learning", weight: DEFAULT_FIT_WEIGHTS.adjacencyAndLearning, score: Math.max(requiredScore, preferredScore), evidenceConfidence: "MEDIUM", evidenceIds: [] },
+    { id: "careerAlignment", label: "Career alignment", weight: DEFAULT_FIT_WEIGHTS.careerAlignment, score: Math.round((roleAndLevelScore + locationScore) / 2), evidenceConfidence: "MEDIUM", evidenceIds: [] },
+    { id: "adjacencyAndLearning", label: "Adjacency and learning", weight: DEFAULT_FIT_WEIGHTS.adjacencyAndLearning, score: adjacencyScore, evidenceConfidence: "MEDIUM", evidenceIds: [] },
   ];
 }
 
