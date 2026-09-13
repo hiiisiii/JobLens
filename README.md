@@ -30,10 +30,19 @@ Implemented foundations include:
 - canonical-URL/content based duplicate assessment;
 - configurable ranking with Hard Gate + weighted Fit Score + independent Confidence;
 - discovery orchestration where one failed source does not fail the whole run;
+- persistent discovery state through a local JSON-directory storage adapter;
+- private workspace initialization for jobs, opportunities, applications, research, logs, cache, and documents;
+- canonical job identity preservation when later sources rediscover the same posting;
 - an agent-agnostic `SearchProvider` boundary for web discovery;
 - a Saramin Open API adapter for structured Korean job discovery;
-- runtime configuration and a storage port with an in-memory adapter;
+- runtime configuration and storage ports that keep framework logic independent from persistence;
 - CI typecheck and unit tests.
+
+## Private workspace
+
+A user workspace is deliberately separate from the public repository. `initializeWorkspace()` creates the private runtime directories and persistent stores under the configured workspace root. The current alpha uses one JSON file per persisted entity with atomic replacement writes; the storage contract remains swappable so a later SQLite adapter can be introduced without changing the domain workflow.
+
+Do not put a real workspace inside a public clone. Real resumes, application history, private preferences, and credentials should stay outside the repository.
 
 ## Saramin adapter
 
