@@ -149,7 +149,7 @@ export class JobLensToolService {
         return readCandidateProfileFile(join(this.workspaceDir, "profile", "candidate-profile.json"));
       case "joblens_jobs_list": {
         const jobs = await stores.jobs.list();
-        return limit(jobs.sort((a, b) => b.lastSeenAt.localeCompare(a.lastSeenAt)), call.input?.limit);
+        return limit(jobs.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)), call.input?.limit);
       }
       case "joblens_opportunities_list": {
         let opportunities = await stores.opportunities.list();
