@@ -19,7 +19,7 @@ It is designed around a simple interaction model: users can talk to an AI client
 
 ## Current implementation
 
-JobLens is currently `v0.1.0-alpha.16`.
+JobLens is currently `v0.1.0-alpha.17`.
 
 Implemented foundations include:
 
@@ -30,7 +30,7 @@ Implemented foundations include:
 - explicit discovery-hit verification/materialization that requires fetched posting content before a search hit can become a canonical JobPosting;
 - verification metadata on materialized web hits, including verified source URL, time, and content hash;
 - Hard Gate + weighted Fit Score + independent Confidence, including early-career seniority/experience gates;
-- ranking policy v0.3 with Korea-first deterministic role/location normalization, directional skill matching, and structured experience evidence;
+- ranking policy v0.4 with Korea-first deterministic role/location normalization, directional skill matching, structured experience evidence, live-JD capability calibration, and conservative handling of technology-only experience matches;
 - optional grounded `experienceEvidence` records carrying project/work capabilities, technologies actually used, and evidence ids;
 - a relevant-experience matcher that compares verified JD capability signals and required technologies against grounded experience records instead of duplicating the skill-inventory score;
 - persistent JobEvaluation and Opportunity entities with stable identities across reranking;
@@ -111,9 +111,11 @@ JobLens separates **Hard Gate** (PASS/FLAG/FAIL), **Fit Score** (weighted 0–10
 
 Ranking policy v0.2 introduced deterministic normalization for common Korea-first inputs: Korean/English backend-server role matching, Seoul aliases, explicit early-career title evidence, directional skill matching, and removal of the automatic preferred-skill bonus when preferred requirements are absent.
 
-Ranking policy v0.3 adds optional structured `experienceEvidence` to CandidateProfile. Each experience record must name the capabilities demonstrated, technologies actually used, and one or more evidence ids. When this evidence exists, the `relevantExperience` dimension compares deterministic capability signals from the verified posting and required technologies against those grounded experiences. Contributing experience evidence ids flow into the dimension result.
+Ranking policy v0.3 added optional structured `experienceEvidence` to CandidateProfile. Each experience record names the capabilities demonstrated, technologies actually used, and one or more evidence ids. When this evidence exists, the `relevantExperience` dimension compares deterministic capability signals from the verified posting and required technologies against those grounded experiences. Contributing experience evidence ids flow into the dimension result.
 
-Profiles without structured experience remain valid, but `relevantExperience` falls back to the old required-skill proxy with LOW confidence instead of pretending that a skill inventory proves hands-on experience. See `docs/ranking-v0.3.md` and `workspace-template/profile/candidate.example.json`.
+Ranking policy v0.4 calibrates that matcher against live Korea-first backend posting patterns. It adds explicit signals for data modeling, performance optimization, incident response, system architecture, LLM integration, and database migration, while recognizing common phrases such as `API 서버` and `백엔드 API`. When a posting has no recognized capability wording, technology-only experience is shrunk toward a neutral score and its confidence is capped instead of being treated as complete hands-on equivalence. See `docs/ranking-v0.4.md`.
+
+Profiles without structured experience remain valid, but `relevantExperience` falls back to the old required-skill proxy with LOW confidence instead of pretending that a skill inventory proves hands-on experience. See `docs/ranking-v0.3.md`, `docs/ranking-v0.4.md`, and `workspace-template/profile/candidate.example.json`.
 
 These mappings remain deliberately conservative. They are not a general semantic ontology, and unsupported aliases or capability wording remain unmatched rather than being guessed.
 
