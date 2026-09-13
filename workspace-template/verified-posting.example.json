@@ -1,0 +1,16 @@
+{
+  "sourceUrl": "https://careers.example.com/jobs/backend-developer",
+  "company": "Example Company",
+  "title": "Backend Developer",
+  "fullText": "Paste the actual fetched job-posting content here. Do not substitute a search-result snippet.",
+  "contentCompleteness": "full",
+  "locations": ["Seoul"],
+  "requiredSkills": ["Node.js", "TypeScript"],
+  "preferredSkills": ["PostgreSQL"],
+  "responsibilities": ["Build and maintain REST APIs"],
+  "experienceRequirement": {
+    "minYears": 0,
+    "rawText": "Entry-level candidates welcome"
+  },
+  "status": "open"
+}
