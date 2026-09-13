@@ -19,7 +19,7 @@ It is designed around a simple interaction model: users can talk to an AI client
 
 ## Current implementation
 
-JobLens is currently `v0.1.0-alpha.9`.
+JobLens is currently `v0.1.0-alpha.10`.
 
 Implemented foundations include:
 
@@ -28,18 +28,14 @@ Implemented foundations include:
 - Hard Gate + weighted Fit Score + independent Confidence, including early-career seniority/experience gates;
 - persistent JobEvaluation and Opportunity entities with stable identities across reranking;
 - evidence-grounded research with verified facts, analysis, community signals, risks, opportunities, and unresolved questions;
-- explicit `--approve` boundary before application preparation;
-- frozen CandidateProfile + JobPosting + CompanyResearch snapshots per application package;
-- evidence-linked artifact claim inventories for resume, self-intro, cover letter, and portfolio brief drafts;
-- separate reviewer result and automated grounding audit before READY;
-- content-hash and frozen-evidence checks that force `REVISION_REQUIRED` when grounding blockers exist;
-- revision lifecycle support back to PREPARING without erasing history;
+- explicit approval before application preparation, frozen source snapshots, evidence-linked artifact claims, reviewer + grounding audit, and revision lifecycle;
 - explicit user-confirmed READY -> APPLIED recording with immutable SubmissionSnapshot metadata;
-- event-based interview, offer, completion, and withdrawal lifecycle tracking;
-- idempotent outcome event handling so retries do not duplicate lifecycle history;
+- event-based interview, offer, completion, and withdrawal lifecycle tracking with idempotent outcome handling;
 - private workspace storage for jobs, evaluations, opportunities, research, evidence, applications, packages, and reviews;
 - executable `setup`, `discover`, `rank`, `research`, `prepare`, `review`, and `outcome` CLI commands;
-- agent-agnostic tool contracts for conversational clients;
+- transport-neutral `JobLensToolService` exposing canonical read/workflow tools to conversational clients;
+- public `JOBLENS_TOOL_DEFINITIONS` manifest with tool descriptions, approval classes, and JSON-schema-shaped inputs;
+- metadata-only tool-call audit traces under the private workspace, without raw prompts/documents/secrets;
 - CI typecheck and unit tests.
 
 ## CLI quick start
@@ -50,48 +46,26 @@ npm run build
 
 export JOBLENS_WORKSPACE="$HOME/.joblens/my-search"
 
-# 1. private candidate profile
 node dist/cli/bin.js setup --profile /private/path/candidate-profile.json
-
-# 2. discovery
 node dist/cli/bin.js discover /private/path/posting.json
-
-# or Saramin structured discovery
-export SARAMIN_ACCESS_KEY="..."
-node dist/cli/bin.js discover \
-  --source saramin \
-  --keyword "Node.js" \
-  --keyword "백엔드,TypeScript" \
-  --location "서울" \
-  --posted-after "2026-09-01" \
-  --limit 25
-
-# 3. rank and persist Opportunity ids
 node dist/cli/bin.js rank
-
-# 4. research selected opportunity
-node dist/cli/bin.js research \
-  opp:example \
-  --input /private/path/research.json
-
-# 5. explicit human approval + evidence-linked draft package
-node dist/cli/bin.js prepare \
-  opp:example \
-  --input /private/path/application-draft.json \
-  --approve
-
-# 6. independent review + grounding audit
-node dist/cli/bin.js review \
-  application:example \
-  --input /private/path/review.json
-
-# 7. after the user actually submits outside JobLens, record APPLIED/outcomes
-node dist/cli/bin.js outcome \
-  application:example \
-  --input /private/path/outcome.json
+node dist/cli/bin.js research opp:example --input /private/path/research.json
+node dist/cli/bin.js prepare opp:example --input /private/path/application-draft.json --approve
+node dist/cli/bin.js review application:example --input /private/path/review.json
+node dist/cli/bin.js outcome application:example --input /private/path/outcome.json
 ```
 
-The package also exposes a `joblens` bin entrypoint for installed/package-linked use.
+Saramin structured discovery is also executable when `SARAMIN_ACCESS_KEY` is supplied through the environment. Never commit the real key.
+
+## Conversational clients
+
+`JobLensToolService` is the canonical transport-neutral boundary for AI clients. It exposes stable tools such as `joblens_profile_get`, `joblens_opportunities_list`, `joblens_research`, `joblens_prepare`, `joblens_review`, and `joblens_record_outcome` while re-reading the private workspace on every invocation.
+
+This means chat memory is not authoritative state. Durable ids such as `opportunityId` and `applicationId` must be re-used or re-read before mutations; a stale conversational ordinal like “#3” must not silently identify a different job.
+
+Tool actions are classified as `READ_ONLY`, `LOCAL_MUTATION`, `EXPLICIT_DECISION`, or reserved `EXTERNAL_ACTION`. `joblens_prepare` requires explicit approval, and APPLIED still requires explicit user confirmation. Tool-call traces record metadata and resulting entity ids but intentionally exclude raw candidate/job content and credentials.
+
+See `docs/conversational-tools.md` for the canonical tool list and integration boundary. Alpha.10 is **MCP-ready but does not yet include an MCP transport server**; MCP/HTTP/SDK adapters should remain thin and call this service rather than duplicate business rules.
 
 ## Private workspace
 
@@ -101,53 +75,25 @@ Do not put a real workspace inside a public clone.
 
 ## Ranking semantics
 
-JobLens deliberately separates three concepts:
-
-- **Hard Gate**: PASS / FLAG / FAIL eligibility or risk checks.
-- **Fit Score**: weighted 0–100 comparison only when a role has not failed the hard gate.
-- **Confidence**: how strongly the available evidence supports the assessment.
-
-For an early-career profile, a role that explicitly requires five or more years is failed before fit scoring. A three-to-four-year minimum is flagged for review. Explicit senior-level titles are prevented from surfacing as ordinary high-scoring junior matches.
+JobLens separates **Hard Gate** (PASS/FLAG/FAIL), **Fit Score** (weighted 0–100 comparison), and **Confidence** (strength of available evidence). A fit score is not a hiring probability. Early-career profiles fail explicitly senior roles or roles requiring five or more years before ordinary scoring; three-to-four-year requirements are flagged for review.
 
 ## Evidence-grounded research
 
-`research` accepts a JSON research package and attaches it to a previously ranked Opportunity. See `workspace-template/research-input.example.json`.
-
-Raw evidence and findings are separate. Each finding must reference evidence keys. Non-user evidence requires a source URI, and community signals require community-authority evidence. Unresolved questions remain explicit instead of being guessed.
+Raw evidence and findings are separate. Each finding must reference evidence keys. Non-user evidence requires a source URI, community signals require community-authority evidence, and unresolved questions remain explicit instead of being guessed. See `workspace-template/research-input.example.json`.
 
 ## Application preparation and grounding
 
-`prepare` requires explicit `--approve`; fit score alone can never create an application. See `workspace-template/application-draft.example.json`.
+`prepare` requires explicit approval; fit score alone can never create an application. Preparation freezes the exact CandidateProfile version, JobPosting, and CompanyResearch used for the draft. Each declared factual claim must reference the frozen evidence set.
 
-Preparation freezes the exact CandidateProfile version, JobPosting, and CompanyResearch used for the draft. Each declared factual claim in an artifact must reference evidence from that frozen source set. Candidate evidence comes from the private profile, company evidence comes from research, and a stable job-snapshot evidence id represents the frozen posting.
-
-`review` is a separate step. See `workspace-template/review.example.json`. It combines an independent reviewer verdict with an automatic grounding audit. READY requires reviewer `PASS` and zero grounding blockers. Changed artifact content, claims that point outside the frozen evidence set, or other grounding failures force `REVISION_REQUIRED`.
-
-The core grounding audit validates the declared factual-claim inventory; it does not claim to infer every factual sentence from arbitrary prose by itself. A conversational/AI reviewer should surface undeclared or unsupported claims as BLOCKER findings before marking a package PASS.
+`review` combines an independent reviewer verdict with an automatic grounding audit. READY requires reviewer `PASS` and zero grounding blockers. The core audit validates the declared factual-claim inventory and hashes; it does not pretend to infer every factual sentence from arbitrary prose, so an AI/human reviewer must surface undeclared unsupported claims as BLOCKER findings.
 
 ## Submission and outcome lifecycle
 
-JobLens does **not** submit applications in v0.1. The user submits through the external portal, then records the result with `outcome`. See `workspace-template/outcome.example.json`.
-
-`APPLIED` requires explicit `userConfirmed: true` and can only transition from READY. At that point JobLens creates a SubmissionSnapshot containing the candidate profile version plus artifact versions/hashes from the selected application package. Later interview rounds are stored as lifecycle events rather than hard-coded interview states. Offer, completion, rejection/no-response, and withdrawal remain explicit application outcomes.
-
-Repeated delivery of the same outcome event is idempotent and does not duplicate lifecycle history.
-
-## Saramin discovery
-
-The Saramin source uses the official job-search endpoint and expects an access key through the environment:
-
-```bash
-export SARAMIN_ACCESS_KEY="..."
-```
-
-The CLI accepts repeated or comma-separated `--keyword` and `--location` values, an ISO-compatible `--posted-after` value, and `--limit` from 1 to 110. Structured portal metadata is marked partial and should be verified against a canonical posting before application preparation.
-
-Never commit the real key.
+JobLens does **not** submit applications in v0.1. The user submits through the external portal, then records the event. `APPLIED` requires explicit `userConfirmed: true` and can only transition from READY. JobLens freezes the candidate profile version and submitted artifact versions/hashes into a SubmissionSnapshot. Interview rounds remain lifecycle events rather than hard-coded interview states.
 
 ## Web search providers
 
-JobLens does not hard-code one AI vendor's web search. A client can implement the `SearchProvider` contract and expose results through `WebSearchSource`. Search-only results remain discovery hits until another source verifies/materializes the posting.
+JobLens does not hard-code one AI vendor's web search. A client can implement the `SearchProvider` contract and expose results through `WebSearchSource`. Search-only results remain discovery hits until another source verifies/materializes the posting. An executable generic web-search provider path remains planned for v0.1.
 
 ## Development
 
