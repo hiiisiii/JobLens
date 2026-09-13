@@ -21,6 +21,7 @@ Read-only:
 
 - `joblens_profile_get`
 - `joblens_discovery_hits_list`
+- `joblens_discovery_hit_get`
 - `joblens_jobs_list`
 - `joblens_opportunities_list`
 - `joblens_opportunity_get`
@@ -31,6 +32,7 @@ Workflow:
 
 - `joblens_setup`
 - `joblens_discover`
+- `joblens_materialize_hit`
 - `joblens_rank`
 - `joblens_research`
 - `joblens_prepare`
@@ -43,14 +45,33 @@ Workflow:
 
 A conversational client that already has web-search capability can call `joblens_discover` with `source: "web_search"`, a `providerId`, the executed JobLens query, and the returned search-result items.
 
-JobLens stores each result as a durable `DiscoveryHitRecord` with a stable `hitId`, source provenance, query identity, first/last seen timestamps, and `DISCOVERED` or `MATERIALIZED` status. The records can be recovered later with `joblens_discovery_hits_list`, so a chat session is not required to remember which URLs were found.
+JobLens stores each result as a durable `DiscoveryHitRecord` with a stable `hitId`, source provenance, query identity, first/last seen timestamps, and `DISCOVERED` or `MATERIALIZED` status. The records can be recovered later with `joblens_discovery_hits_list`, and one record can be re-read with `joblens_discovery_hit_get`, so a chat session is not required to remember which URLs were found.
 
-Search snippets are not trusted as complete job descriptions. A web-search-only hit stays outside `JobPosting`, ranking, and application preparation until another explicit/authoritative source materializes and verifies the posting. This keeps broad search recall separate from evidence used for candidate-job decisions.
+Search snippets are not trusted as complete job descriptions. A web-search-only hit stays outside `JobPosting`, ranking, and application preparation until the actual posting page has been fetched and verified.
+
+## Discovery-hit materialization
+
+`joblens_materialize_hit` is the explicit bridge from recall-oriented discovery into evidence-bearing canonical job state.
+
+The caller must provide:
+
+- a stable `hitId`;
+- the URL of the page actually fetched;
+- company and job title;
+- the fetched posting text;
+- an explicit `full` or `partial` completeness declaration;
+- optional structured fields such as locations, required/preferred skills, experience, dates, and status.
+
+JobLens refuses empty page content and non-HTTP(S) page URLs. It preserves the original discovery source reference, adds a separate verified-page source reference, persists or merges the resulting `JobPosting` through the normal duplicate pipeline, then marks the discovery hit `MATERIALIZED`.
+
+The discovery hit stores verification metadata: method, canonicalized fetched URL, verification time, and content hash. Repeating materialization for an already materialized hit returns the existing canonical job instead of creating another one.
+
+This separation is deliberate: a search snippet can suggest a candidate URL, but only fetched posting content can become rankable evidence.
 
 ## Approval classes
 
 - `READ_ONLY`: no durable mutation.
-- `LOCAL_MUTATION`: changes private JobLens state but does not represent an external user decision.
+- `LOCAL_MUTATION`: changes private JobLens state but does not represent an external user decision. Discovery-hit materialization belongs here.
 - `EXPLICIT_DECISION`: requires an explicit user decision. `joblens_prepare` cannot infer approval from score, and APPLIED still requires explicit confirmation through `joblens_record_outcome`.
 - `EXTERNAL_ACTION`: reserved for future integrations. v0.1 does not submit applications.
 
@@ -64,7 +85,7 @@ Every tool invocation writes a metadata-only trace under `logs/tool-calls/` in t
 
 ## Local MCP stdio adapter
 
-Alpha.11 adds an actual MCP server using the official MCP TypeScript SDK v2. The `joblens-mcp` executable exposes the canonical JobLens tools over stdio and keeps all workflow rules inside `JobLensToolService`.
+The `joblens-mcp` executable exposes the canonical JobLens tools over stdio using the official MCP TypeScript SDK v2 and keeps workflow rules inside `JobLensToolService`.
 
 ```bash
 npm install
