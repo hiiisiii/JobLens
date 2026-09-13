@@ -3,12 +3,14 @@ import { join } from "node:path";
 import type { Application } from "../core/domain/application.js";
 import type { ApplicationPackage, ApplicationReview } from "../core/domain/application-package.js";
 import type { CompanyResearch } from "../core/domain/company-research.js";
+import type { DiscoveryHitRecord } from "../core/domain/discovery-hit.js";
 import type { JobPosting } from "../core/domain/job-posting.js";
 import type { JobEvaluation, Opportunity } from "../core/domain/opportunity.js";
 import type { SourceEvidence } from "../core/domain/source-evidence.js";
 import { JsonDirectoryStore } from "../storage/json-directory-store.js";
 
 export interface WorkspaceStores {
+  discoveryHits: JsonDirectoryStore<DiscoveryHitRecord>;
   jobs: JsonDirectoryStore<JobPosting>;
   evaluations: JsonDirectoryStore<JobEvaluation>;
   opportunities: JsonDirectoryStore<Opportunity>;
@@ -22,6 +24,7 @@ export interface WorkspaceStores {
 const PRIVATE_DIRECTORIES = [
   "profile",
   "documents",
+  "discovery-hits",
   "jobs",
   "evaluations",
   "opportunities",
@@ -41,6 +44,7 @@ export async function initializeWorkspace(rootDir: string): Promise<WorkspaceSto
   await Promise.all(PRIVATE_DIRECTORIES.map((directory) => mkdir(join(rootDir, directory), { recursive: true })));
 
   return {
+    discoveryHits: new JsonDirectoryStore<DiscoveryHitRecord>(join(rootDir, "discovery-hits")),
     jobs: new JsonDirectoryStore<JobPosting>(join(rootDir, "jobs")),
     evaluations: new JsonDirectoryStore<JobEvaluation>(join(rootDir, "evaluations")),
     opportunities: new JsonDirectoryStore<Opportunity>(join(rootDir, "opportunities")),

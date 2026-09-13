@@ -19,19 +19,21 @@ It is designed around a simple interaction model: users can talk to an AI client
 
 ## Current implementation
 
-JobLens is currently `v0.1.0-alpha.11`.
+JobLens is currently `v0.1.0-alpha.12`.
 
 Implemented foundations include:
 
-- canonical domain models for CandidateProfile, JobPosting, Opportunity, Application, CompanyResearch, SourceEvidence, ApplicationPackage, and ApplicationReview;
-- source capability contracts, manual ingestion, Saramin Open API discovery, and duplicate assessment;
+- canonical domain models for CandidateProfile, JobPosting, DiscoveryHitRecord, Opportunity, Application, CompanyResearch, SourceEvidence, ApplicationPackage, and ApplicationReview;
+- source capability contracts, manual ingestion, Saramin Open API discovery, web-search discovery, and duplicate assessment;
+- durable search/discovery hits with stable ids, status, source provenance, and query identity;
+- client-assisted web search ingestion so an AI host can persist its own search results without hard-wiring JobLens to one search vendor;
 - Hard Gate + weighted Fit Score + independent Confidence, including early-career seniority/experience gates;
 - persistent JobEvaluation and Opportunity entities with stable identities across reranking;
 - evidence-grounded research with verified facts, analysis, community signals, risks, opportunities, and unresolved questions;
 - explicit approval before application preparation, frozen source snapshots, evidence-linked artifact claims, reviewer + grounding audit, and revision lifecycle;
 - explicit user-confirmed READY -> APPLIED recording with immutable SubmissionSnapshot metadata;
 - event-based interview, offer, completion, and withdrawal lifecycle tracking with idempotent outcome handling;
-- private workspace storage for jobs, evaluations, opportunities, research, evidence, applications, packages, and reviews;
+- private workspace storage for discovery hits, jobs, evaluations, opportunities, research, evidence, applications, packages, and reviews;
 - executable `setup`, `discover`, `rank`, `research`, `prepare`, `review`, and `outcome` CLI commands;
 - transport-neutral `JobLensToolService` exposing canonical read/workflow tools to conversational clients;
 - public `JOBLENS_TOOL_DEFINITIONS` manifest with tool descriptions, approval classes, and JSON-schema-shaped inputs;
@@ -61,7 +63,7 @@ Saramin structured discovery is also executable when `SARAMIN_ACCESS_KEY` is sup
 
 ## MCP quick start
 
-JobLens now includes a local stdio MCP adapter:
+JobLens includes a local stdio MCP adapter:
 
 ```bash
 npm install
@@ -80,9 +82,9 @@ The MCP layer is deliberately thin: request ids are generated server-side, calls
 
 ## Conversational clients
 
-`JobLensToolService` is the canonical transport-neutral boundary for AI clients. It exposes stable tools such as `joblens_profile_get`, `joblens_opportunities_list`, `joblens_research`, `joblens_prepare`, `joblens_review`, and `joblens_record_outcome` while re-reading the private workspace on every invocation.
+`JobLensToolService` is the canonical transport-neutral boundary for AI clients. It exposes stable tools such as `joblens_profile_get`, `joblens_discovery_hits_list`, `joblens_opportunities_list`, `joblens_research`, `joblens_prepare`, `joblens_review`, and `joblens_record_outcome` while re-reading the private workspace on every invocation.
 
-Chat memory is not authoritative state. Durable ids such as `opportunityId` and `applicationId` must be re-used or re-read before mutations; a stale conversational ordinal like “#3” must not silently identify a different job.
+Chat memory is not authoritative state. Durable ids such as `hitId`, `opportunityId`, and `applicationId` must be re-used or re-read before mutations; a stale conversational ordinal like “#3” must not silently identify a different job.
 
 Tool actions are classified as `READ_ONLY`, `LOCAL_MUTATION`, `EXPLICIT_DECISION`, or reserved `EXTERNAL_ACTION`. `joblens_prepare` requires explicit approval, and APPLIED still requires explicit user confirmation. Tool-call traces record metadata and resulting entity ids but intentionally exclude raw candidate/job content and credentials.
 
@@ -114,7 +116,11 @@ JobLens does **not** submit applications in v0.1. The user submits through the e
 
 ## Web search providers
 
-JobLens does not hard-code one AI vendor's web search. A client can implement the `SearchProvider` contract and expose results through `WebSearchSource`. Search-only results remain discovery hits until another source verifies/materializes the posting. An executable generic web-search provider path remains planned for v0.1.
+JobLens does not hard-code one AI vendor's web search. Alpha.12 adds an executable **client-assisted** path: a conversational host can use its own web-search capability and pass `{ providerId, query, results }` to `joblens_discover` with `source: "web_search"`.
+
+Those results are persisted under the private workspace as stable `DiscoveryHitRecord` entities and can be recovered later with `joblens_discovery_hits_list`. Search snippets are deliberately **not** promoted to canonical `JobPosting` records and cannot enter ranking by themselves. A later materialization/verification step must capture the actual posting from an authoritative or explicit source before the role is ranked or used for application preparation.
+
+The lower-level `SearchProvider` and `WebSearchSource` contracts remain provider-agnostic, so a direct search API adapter can be added later without changing the domain workflow.
 
 ## Development
 

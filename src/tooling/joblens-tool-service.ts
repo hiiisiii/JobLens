@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { CandidateProfile } from "../core/domain/candidate-profile.js";
 import type { ApplicationState } from "../core/domain/application.js";
+import type { DiscoveryHitStatus } from "../core/domain/discovery-hit.js";
 import type { OpportunityState } from "../core/domain/opportunity.js";
 import type { RuntimeEnvironment } from "../config/runtime-config.js";
 import { resolveRuntimeConfig } from "../config/runtime-config.js";
@@ -14,14 +15,18 @@ import { persistResearch, type ResearchImportInput } from "../research/research-
 import { prepareApplication, type PrepareApplicationInput } from "../application/preparation-service.js";
 import { reviewApplication, type ReviewInput } from "../application/review-service.js";
 import { recordOutcome, type OutcomeEventInput } from "../application/outcome-service.js";
+import { ProvidedSearchProvider } from "../search/provided-search-provider.js";
+import type { WebSearchResultItem } from "../search/search-provider.js";
 import { ManualSource, type ManualJobInput } from "../sources/manual/manual-source.js";
 import { SaraminSource } from "../sources/saramin/saramin-source.js";
 import type { SearchQuery, SourceContext } from "../sources/source-adapter.js";
+import { WebSearchSource } from "../sources/web-search/web-search-source.js";
 import { initializeWorkspace } from "../workspace/workspace.js";
 import type { ApprovalClass, ToolRequestContext, ToolResponse } from "./tool-contract.js";
 
 export type JobLensToolName =
   | "joblens_profile_get"
+  | "joblens_discovery_hits_list"
   | "joblens_jobs_list"
   | "joblens_opportunities_list"
   | "joblens_opportunity_get"
@@ -37,13 +42,20 @@ export type JobLensToolName =
 
 export type JobLensToolCall =
   | { tool: "joblens_profile_get"; input?: Record<string, never> }
+  | { tool: "joblens_discovery_hits_list"; input?: { sourceId?: string; status?: DiscoveryHitStatus; limit?: number } }
   | { tool: "joblens_jobs_list"; input?: { limit?: number } }
   | { tool: "joblens_opportunities_list"; input?: { states?: OpportunityState[]; limit?: number } }
   | { tool: "joblens_opportunity_get"; input: { opportunityId: string } }
   | { tool: "joblens_applications_list"; input?: { states?: ApplicationState[]; limit?: number } }
   | { tool: "joblens_application_get"; input: { applicationId: string } }
   | { tool: "joblens_setup"; input: { profile: CandidateProfile; replace?: boolean } }
-  | { tool: "joblens_discover"; input: { source: "manual"; posting: ManualJobInput } | { source: "saramin"; query: SearchQuery } }
+  | {
+      tool: "joblens_discover";
+      input:
+        | { source: "manual"; posting: ManualJobInput }
+        | { source: "saramin"; query: SearchQuery }
+        | { source: "web_search"; providerId: string; query: SearchQuery; results: WebSearchResultItem[] };
+    }
   | { tool: "joblens_rank"; input?: { opportunityIds?: string[] } }
   | { tool: "joblens_research"; input: { opportunityId: string; researchInput: ResearchImportInput } }
   | { tool: "joblens_prepare"; input: { opportunityId: string; userApproved: true; draft: PrepareApplicationInput } }
@@ -66,6 +78,7 @@ export interface ToolTrace {
 
 const APPROVAL: Record<JobLensToolName, ApprovalClass> = {
   joblens_profile_get: "READ_ONLY",
+  joblens_discovery_hits_list: "READ_ONLY",
   joblens_jobs_list: "READ_ONLY",
   joblens_opportunities_list: "READ_ONLY",
   joblens_opportunity_get: "READ_ONLY",
@@ -147,6 +160,13 @@ export class JobLensToolService {
     switch (call.tool) {
       case "joblens_profile_get":
         return readCandidateProfileFile(join(this.workspaceDir, "profile", "candidate-profile.json"));
+      case "joblens_discovery_hits_list": {
+        let hits = await stores.discoveryHits.list();
+        if (call.input?.sourceId?.trim()) hits = hits.filter((item) => item.sourceId === call.input?.sourceId?.trim());
+        if (call.input?.status) hits = hits.filter((item) => item.status === call.input?.status);
+        hits.sort((a, b) => b.lastSeenAt.localeCompare(a.lastSeenAt));
+        return limit(hits, call.input?.limit);
+      }
       case "joblens_jobs_list": {
         const jobs = await stores.jobs.list();
         return limit(jobs.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)), call.input?.limit);
@@ -199,14 +219,27 @@ export class JobLensToolService {
           entityRefs.push(job.id);
           return { jobs: [job], created: 1, updated: 0 };
         }
+        if (call.input.source === "web_search") {
+          const provider = new ProvidedSearchProvider({ providerId: call.input.providerId, items: call.input.results });
+          const result = await runDiscovery({
+            sources: [new WebSearchSource(provider)],
+            query: call.input.query,
+            context: sourceContext,
+            jobStore: stores.jobs,
+            discoveryHitStore: stores.discoveryHits,
+          });
+          entityRefs.push(...result.hits.records.map((hit) => hit.hitId));
+          return result;
+        }
         if (!config.sources.saramin.accessKey) throw new Error("Saramin discovery requires SARAMIN_ACCESS_KEY in the environment");
         const result = await runDiscovery({
           sources: [new SaraminSource({ accessKey: config.sources.saramin.accessKey })],
           query: call.input.query,
           context: sourceContext,
           jobStore: stores.jobs,
+          discoveryHitStore: stores.discoveryHits,
         });
-        entityRefs.push(...result.discovery.jobs.map((job) => job.id));
+        entityRefs.push(...result.discovery.jobs.map((job) => job.id), ...result.hits.records.map((hit) => hit.hitId));
         return result;
       }
       case "joblens_rank": {
