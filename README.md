@@ -19,7 +19,7 @@ It is designed around a simple interaction model: users can talk to an AI client
 
 ## Current implementation
 
-JobLens is currently `v0.1.0-alpha.13`.
+JobLens is currently `v0.1.0-alpha.14`.
 
 Implemented foundations include:
 
@@ -36,7 +36,8 @@ Implemented foundations include:
 - explicit user-confirmed READY -> APPLIED recording with immutable SubmissionSnapshot metadata;
 - event-based interview, offer, completion, and withdrawal lifecycle tracking with idempotent outcome handling;
 - private workspace storage for discovery hits, jobs, evaluations, opportunities, research, evidence, applications, packages, and reviews;
-- executable `setup`, `discover`, `rank`, `research`, `prepare`, `review`, and `outcome` CLI commands;
+- executable `setup`, `discover`, `materialize`, `rank`, `research`, `prepare`, `review`, and `outcome` CLI commands;
+- CLI integration coverage for verified-hit materialization -> ranking and outcome dispatch;
 - transport-neutral `JobLensToolService` exposing canonical read/workflow tools to conversational clients;
 - public `JOBLENS_TOOL_DEFINITIONS` manifest with tool descriptions, approval classes, and JSON-schema-shaped inputs;
 - actual local MCP stdio server built on the official MCP TypeScript SDK v2;
@@ -54,6 +55,7 @@ export JOBLENS_WORKSPACE="$HOME/.joblens/my-search"
 
 node dist/cli/bin.js setup --profile /private/path/candidate-profile.json
 node dist/cli/bin.js discover /private/path/posting.json
+node dist/cli/bin.js materialize hit:example --input /private/path/verified-posting.json
 node dist/cli/bin.js rank
 node dist/cli/bin.js research opp:example --input /private/path/research.json
 node dist/cli/bin.js prepare opp:example --input /private/path/application-draft.json --approve
@@ -61,9 +63,9 @@ node dist/cli/bin.js review application:example --input /private/path/review.jso
 node dist/cli/bin.js outcome application:example --input /private/path/outcome.json
 ```
 
-Saramin structured discovery is also executable when `SARAMIN_ACCESS_KEY` is supplied through the environment. Never commit the real key.
+`materialize` is mainly useful for discovery hits created by a conversational/web-search client. It requires a stable `hitId` plus a JSON file containing the fetched posting URL and actual posting content. Search snippets alone are not sufficient.
 
-The alpha.13 discovery-hit materialization path is exposed through the canonical tool/MCP boundary. A CLI wrapper for this specific step can be added later without changing the underlying service contract.
+Saramin structured discovery is executable when `SARAMIN_ACCESS_KEY` is supplied through the environment. Its search hits are also persisted in the discovery-hit store. Never commit the real key.
 
 ## MCP quick start
 
@@ -120,13 +122,15 @@ Raw evidence and findings are separate. Each finding must reference evidence key
 
 JobLens does **not** submit applications in v0.1. The user submits through the external portal, then records the event. `APPLIED` requires explicit `userConfirmed: true` and can only transition from READY. JobLens freezes the candidate profile version and submitted artifact versions/hashes into a SubmissionSnapshot. Interview rounds remain lifecycle events rather than hard-coded interview states.
 
+The CLI `outcome` command is wired to the same `recordOutcome` service used by conversational tools; it does not perform the external submission itself.
+
 ## Web search providers
 
 JobLens does not hard-code one AI vendor's web search. A conversational host can use its own web-search capability and pass `{ providerId, query, results }` to `joblens_discover` with `source: "web_search"`.
 
 Those results are persisted under the private workspace as stable `DiscoveryHitRecord` entities and can be recovered later with `joblens_discovery_hits_list` or read individually with `joblens_discovery_hit_get`. Search snippets are deliberately **not** promoted to canonical `JobPosting` records and cannot enter ranking by themselves.
 
-Alpha.13 adds the explicit promotion step. After the client opens/fetches the actual posting page, it calls `joblens_materialize_hit` with the stable `hitId` plus the verified posting content. JobLens stores a verification record with the canonicalized source URL, verification timestamp, and content hash, persists/merges the canonical JobPosting through the normal duplicate pipeline, and marks the hit `MATERIALIZED`. Repeating the same materialization is idempotent.
+After the client opens/fetches the actual posting page, it can call `joblens_materialize_hit` or the CLI `materialize` wrapper with the stable `hitId` plus the verified posting content. JobLens stores a verification record with the canonicalized source URL, verification timestamp, and content hash, persists/merges the canonical JobPosting through the normal duplicate pipeline, and marks the hit `MATERIALIZED`. Repeating the same materialization is idempotent.
 
 The lower-level `SearchProvider` and `WebSearchSource` contracts remain provider-agnostic, so a direct search API adapter can be added later without changing the domain workflow.
 
