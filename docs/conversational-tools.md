@@ -20,6 +20,7 @@ User
 Read-only:
 
 - `joblens_profile_get`
+- `joblens_discovery_hits_list`
 - `joblens_jobs_list`
 - `joblens_opportunities_list`
 - `joblens_opportunity_get`
@@ -38,6 +39,14 @@ Workflow:
 
 `JOBLENS_TOOL_DEFINITIONS` publishes names, descriptions, approval classes, and transport-neutral JSON-schema-shaped input definitions. Transport adapters should expose these tools without duplicating business rules.
 
+## Client-assisted web discovery
+
+A conversational client that already has web-search capability can call `joblens_discover` with `source: "web_search"`, a `providerId`, the executed JobLens query, and the returned search-result items.
+
+JobLens stores each result as a durable `DiscoveryHitRecord` with a stable `hitId`, source provenance, query identity, first/last seen timestamps, and `DISCOVERED` or `MATERIALIZED` status. The records can be recovered later with `joblens_discovery_hits_list`, so a chat session is not required to remember which URLs were found.
+
+Search snippets are not trusted as complete job descriptions. A web-search-only hit stays outside `JobPosting`, ranking, and application preparation until another explicit/authoritative source materializes and verifies the posting. This keeps broad search recall separate from evidence used for candidate-job decisions.
+
 ## Approval classes
 
 - `READ_ONLY`: no durable mutation.
@@ -47,7 +56,7 @@ Workflow:
 
 ## Stable references
 
-Conversation ordinals such as “the third one” are presentation conveniences, not durable identifiers. Clients should keep or re-read stable `jobId`, `opportunityId`, `applicationId`, and `packageId` values before mutating state. If an ordinal-to-id mapping is stale or ambiguous, the client should ask for clarification rather than guessing.
+Conversation ordinals such as “the third one” are presentation conveniences, not durable identifiers. Clients should keep or re-read stable `hitId`, `jobId`, `opportunityId`, `applicationId`, and `packageId` values before mutating state. If an ordinal-to-id mapping is stale or ambiguous, the client should ask for clarification rather than guessing.
 
 ## Audit trace
 
