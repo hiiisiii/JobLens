@@ -1,0 +1,15 @@
+profileId: sample-candidate
+version: sample-v1
+targetRoles:
+  - Backend Engineer
+targetLevels:
+  - Junior
+skills:
+  - name: TypeScript
+    evidenceIds:
+      - ev_sample_001
+locations:
+  - Seoul
+mustHaves: []
+dealBreakers: []
+documentRefs: []
