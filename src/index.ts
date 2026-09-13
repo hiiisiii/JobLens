@@ -27,4 +27,5 @@ export * from "./ranking/job-ranker.js";
 export * from "./application/transition-service.js";
 export * from "./tooling/tool-contract.js";
 export * from "./cli/index.js";
+export * from "./cli/discovery-options.js";
 export * from "./cli/runtime.js";
