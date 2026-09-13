@@ -6,5 +6,8 @@ export * from "./core/domain/company-research.js";
 export * from "./core/domain/opportunity.js";
 export * from "./core/domain/application.js";
 export * from "./sources/source-adapter.js";
+export * from "./sources/manual/manual-source.js";
+export * from "./discovery/fingerprint.js";
+export * from "./discovery/dedupe.js";
 export * from "./application/transition-service.js";
 export * from "./tooling/tool-contract.js";
