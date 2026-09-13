@@ -1,7 +1,6 @@
 export type JobLensCommand =
   | "setup"
   | "discover"
-  | "materialize"
   | "rank"
   | "research"
   | "prepare"
@@ -18,7 +17,6 @@ export function parseCommand(argv: string[]): ParsedCommand {
   const commands: JobLensCommand[] = [
     "setup",
     "discover",
-    "materialize",
     "rank",
     "research",
     "prepare",
