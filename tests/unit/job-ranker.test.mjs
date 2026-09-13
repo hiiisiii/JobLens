@@ -19,6 +19,29 @@ const profile = {
   documentRefs: ["resume.pdf"],
 };
 
+const profileWithExperience = {
+  ...profile,
+  version: "v2",
+  experienceEvidence: [
+    {
+      experienceId: "project:authorization-api",
+      title: "Authorization and state backend project",
+      summary: "Implemented member authorization, invitation state transitions, transaction boundaries, and REST APIs.",
+      capabilities: ["api-design", "authorization", "state-management", "transaction"],
+      technologies: ["Node.js", "TypeScript", "Express", "PostgreSQL", "Prisma"],
+      evidenceIds: ["portfolio:project-a", "pr:33"],
+    },
+    {
+      experienceId: "project:data-integrity",
+      title: "Data integrity and validation backend project",
+      summary: "Implemented relational data workflows, validation, tests, and API documentation.",
+      capabilities: ["api-design", "data-integrity", "validation", "testing", "api-documentation", "integration-debugging"],
+      technologies: ["Node.js", "TypeScript", "Express", "PostgreSQL", "Prisma", "Jest", "OpenAPI"],
+      evidenceIds: ["portfolio:project-b", "pr:30"],
+    },
+  ],
+};
+
 function job(overrides = {}) {
   return {
     id: "job:1",
@@ -30,7 +53,7 @@ function job(overrides = {}) {
     preferredSkills: [],
     status: "open",
     contentCompleteness: "full",
-    fullText: "Build backend APIs with Node.js, TypeScript and PostgreSQL.",
+    fullText: "Build backend REST APIs with Node.js, TypeScript and PostgreSQL.",
     fingerprint: "fp:1",
     discoveredAt: "2026-09-14T00:00:00.000Z",
     updatedAt: "2026-09-14T00:00:00.000Z",
@@ -42,11 +65,39 @@ function dimension(result, id) {
   return result.assessment.dimensions.find((item) => item.id === id);
 }
 
-test("matching early-career backend role can pass with a high fit score", () => {
+test("legacy profile keeps fit scoring but downgrades confidence when structured experience is absent", () => {
   const result = rankJob(job(), profile);
   assert.equal(result.assessment.hardGate, "PASS");
   assert.equal((result.assessment.fitScore ?? 0) >= 80, true);
-  assert.equal(result.assessment.confidence, "HIGH");
+  assert.equal(result.assessment.confidence, "MEDIUM");
+  assert.match(dimension(result, "relevantExperience")?.rationale ?? "", /legacy fallback/);
+});
+
+test("structured experience evidence raises relevant-experience confidence and carries evidence ids", () => {
+  const result = rankJob(job({
+    fullText: "Design REST APIs, enforce authorization, handle transaction boundaries, validate requests, and maintain integration tests with Node.js, TypeScript and PostgreSQL.",
+  }), profileWithExperience);
+  const relevant = dimension(result, "relevantExperience");
+  assert.equal(result.assessment.policyVersion, "v0.3");
+  assert.equal((relevant?.score ?? 0) >= 90, true);
+  assert.equal(relevant?.evidenceConfidence, "HIGH");
+  assert.equal(relevant?.evidenceIds.includes("portfolio:project-a"), true);
+  assert.equal(relevant?.evidenceIds.includes("portfolio:project-b"), true);
+  assert.match(relevant?.rationale ?? "", /structured experience evidence/);
+});
+
+test("structured relevant experience distinguishes actual project evidence from profile skill inventory", () => {
+  const skillOnlyProfile = {
+    ...profileWithExperience,
+    skills: [...profileWithExperience.skills, { name: "Redis", evidenceIds: ["course"] }],
+    experienceEvidence: profileWithExperience.experienceEvidence.map((item) => ({ ...item, technologies: item.technologies.filter((technology) => technology !== "Redis") })),
+  };
+  const result = rankJob(job({
+    requiredSkills: ["Redis"],
+    fullText: "Operate Redis-backed services and production monitoring with incident troubleshooting.",
+  }), skillOnlyProfile);
+  assert.equal(dimension(result, "requiredSkills")?.score, 100);
+  assert.equal((dimension(result, "relevantExperience")?.score ?? 100) < 60, true);
 });
 
 test("five-year minimum requirement fails the hard gate for an early-career target", () => {
@@ -74,7 +125,7 @@ test("Korean new-grad server title and Seoul location align with English backend
     title: "[Platform] 서버 개발자 (신입)",
     locations: ["서울"],
     requiredSkills: ["NodeJS", "TypeScript", "Postgres"],
-    fullText: "신입 서버 개발자로 NodeJS, TypeScript, Postgres 기반 API를 개발합니다.",
+    fullText: "신입 서버 개발자로 NodeJS, TypeScript, Postgres 기반 REST API를 개발합니다.",
   }), profile);
   assert.equal(result.assessment.hardGate, "PASS");
   assert.equal((dimension(result, "roleAndLevel")?.score ?? 0) >= 90, true);
