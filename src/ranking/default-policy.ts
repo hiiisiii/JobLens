@@ -1,4 +1,4 @@
-export const DEFAULT_RANKING_POLICY_VERSION = "v0.2";
+export const DEFAULT_RANKING_POLICY_VERSION = "v0.3";
 
 export const DEFAULT_FIT_WEIGHTS = {
   roleAndLevel: 25,
