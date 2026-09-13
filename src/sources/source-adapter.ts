@@ -71,6 +71,15 @@ export interface JobPostingDraft {
   requiredSkills: string[];
   preferredSkills: string[];
   responsibilities: string[];
+  employmentTypes?: string[];
+  experienceRequirement?: {
+    minYears?: number;
+    maxYears?: number;
+    rawText?: string;
+  };
+  postedAt?: string;
+  expiresAt?: string;
+  contentCompleteness?: "full" | "partial" | "unknown";
   status: "open" | "closed" | "unknown";
   fullText: string;
   rawHash: string;
@@ -102,8 +111,13 @@ export interface SourceError {
   occurredAt: string;
 }
 
+export interface SourceWarning {
+  code: string;
+  message: string;
+}
+
 export type SourceResult<T> =
-  | { ok: true; data: T; warnings: Array<{ code: string; message: string }> }
+  | { ok: true; data: T; warnings: SourceWarning[] }
   | { ok: false; error: SourceError };
 
 export interface SourceHealth {
