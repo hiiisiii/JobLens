@@ -25,6 +25,7 @@ export * from "./ranking/scoring-engine.js";
 export * from "./ranking/default-policy.js";
 export * from "./ranking/job-ranker.js";
 export * from "./ranking/ranking-service.js";
+export * from "./research/research-service.js";
 export * from "./application/transition-service.js";
 export * from "./tooling/tool-contract.js";
 export * from "./cli/index.js";

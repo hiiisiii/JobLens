@@ -4,6 +4,7 @@ import type { CandidateProfile } from "../core/domain/candidate-profile.js";
 import { resolveRuntimeConfig, type RuntimeEnvironment } from "../config/runtime-config.js";
 import { initializeWorkspace } from "../workspace/workspace.js";
 import { rankAndPersistJobs } from "../ranking/ranking-service.js";
+import { persistResearch, type ResearchImportInput } from "../research/research-service.js";
 import { ManualSource, type ManualJobInput } from "../sources/manual/manual-source.js";
 import { SaraminSource } from "../sources/saramin/saramin-source.js";
 import type { SourceContext } from "../sources/source-adapter.js";
@@ -158,16 +159,45 @@ export async function rankCommand(env: CliEnvironment): Promise<string> {
   if (result.ranked.length === 0) return "no persisted jobs to rank";
   const lines = result.ranked.map(({ job, assessment }, index) => {
     const score = assessment.fitScore === undefined ? "—" : String(assessment.fitScore);
-    return `${index + 1}. [${assessment.hardGate}] ${score}/100 (${assessment.confidence}) ${job.companyName} — ${job.title}`;
+    const opportunityId = result.opportunities[index]?.opportunityId ?? "unknown-opportunity";
+    return `${index + 1}. [${assessment.hardGate}] ${score}/100 (${assessment.confidence}) ${job.companyName} — ${job.title} [${opportunityId}]`;
   });
   lines.push(`opportunities: ${result.createdOpportunities} created, ${result.updatedOpportunities} updated`);
   lines.push(`evaluations persisted: ${result.evaluations.length}`);
   return lines.join("\n");
 }
 
+export async function researchCommand(args: string[], env: CliEnvironment): Promise<string> {
+  const opportunityId = args[0];
+  if (!opportunityId || opportunityId.startsWith("--")) throw new Error("research requires an opportunity id as the first argument");
+  const inputPath = optionValue(args, "--input");
+  if (!inputPath || inputPath.startsWith("--")) throw new Error("research requires --input <research.json>");
+
+  const root = workspaceRoot(env);
+  const stores = await initializeWorkspace(root);
+  const researchInput = await loadJson<ResearchImportInput>(resolve(inputPath));
+  const result = await persistResearch({
+    opportunityId,
+    researchInput,
+    opportunityStore: stores.opportunities,
+    jobStore: stores.jobs,
+    researchStore: stores.research,
+    evidenceStore: stores.evidence,
+    now: new Date().toISOString(),
+  });
+
+  return [
+    `research persisted: ${result.research.researchId}`,
+    `opportunity: ${result.opportunity.opportunityId} -> ${result.opportunity.state}`,
+    `evidence persisted: ${result.evidence.length}`,
+    `verified facts: ${result.research.verifiedFacts.length}, risks: ${result.research.risks.length}, unresolved: ${result.research.unresolvedQuestions.length}`,
+  ].join("\n");
+}
+
 export async function executeCommand(command: string, args: string[], env: CliEnvironment = process.env): Promise<string> {
   if (command === "setup") return setupCommand(args, env);
   if (command === "discover") return discoverCommand(args, env);
   if (command === "rank") return rankCommand(env);
+  if (command === "research") return researchCommand(args, env);
   throw new Error(`${command} is defined but not executable yet`);
 }

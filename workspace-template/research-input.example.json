@@ -1,0 +1,45 @@
+{
+  "evidence": [
+    {
+      "key": "official-product",
+      "claim": "Example Company operates an API-based developer product.",
+      "evidenceType": "company_official_page",
+      "sourceUri": "https://example.com/product",
+      "sourceTitle": "Example Company Product",
+      "authority": "primary",
+      "confidence": "HIGH",
+      "subject": "company"
+    },
+    {
+      "key": "job-posting",
+      "claim": "The role lists Node.js and PostgreSQL as required skills.",
+      "evidenceType": "canonical_job_posting",
+      "sourceUri": "https://example.com/careers/backend",
+      "sourceTitle": "Backend Developer",
+      "authority": "primary",
+      "confidence": "HIGH",
+      "subject": "job"
+    }
+  ],
+  "findings": [
+    {
+      "kind": "verified_fact",
+      "text": "The company operates an API-based developer product.",
+      "evidenceKeys": ["official-product"]
+    },
+    {
+      "kind": "analysis",
+      "text": "The product domain is adjacent to backend API experience.",
+      "evidenceKeys": ["official-product", "job-posting"]
+    },
+    {
+      "kind": "opportunity",
+      "text": "Existing Node.js and PostgreSQL evidence maps directly to listed requirements.",
+      "evidenceKeys": ["job-posting"]
+    }
+  ],
+  "unresolvedQuestions": [
+    "What is the backend team size?",
+    "How much production ownership is expected from an entry-level hire?"
+  ]
+}
