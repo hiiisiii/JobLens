@@ -11,6 +11,7 @@ import type { JobPosting } from "../core/domain/job-posting.js";
 import type { Opportunity } from "../core/domain/opportunity.js";
 import { stableFingerprint } from "../discovery/fingerprint.js";
 import type { EntityStore } from "../storage/store.js";
+import { transitionApplication } from "./transition-service.js";
 
 export interface ArtifactDraftInput {
   type: ArtifactType;
@@ -144,29 +145,43 @@ export async function prepareApplication(input: {
     throw new Error(`cannot replace application package while application is ${existingApplication.state}`);
   }
 
-  const application: Application = existingApplication
-    ? {
-        ...existingApplication,
-        state: "PREPARING",
-        reviewerStatus: "PENDING",
-        groundingBlockers: [],
-      }
-    : {
-        applicationId,
-        opportunityId: opportunity.opportunityId,
-        jobId: job.id,
-        candidateProfileVersion: input.profile.version,
-        state: "PREPARING",
-        reviewerStatus: "PENDING",
-        groundingBlockers: [],
-        events: [{
-          eventId: `event:${stableFingerprint(`${applicationId}:prepare:${input.now}`)}`,
-          to: "PREPARING",
-          actor: "user",
-          occurredAt: input.now,
-          reason: "explicitly approved application preparation",
-        }],
-      };
+  let application: Application;
+  if (!existingApplication) {
+    application = {
+      applicationId,
+      opportunityId: opportunity.opportunityId,
+      jobId: job.id,
+      candidateProfileVersion: input.profile.version,
+      state: "PREPARING",
+      reviewerStatus: "PENDING",
+      groundingBlockers: [],
+      events: [{
+        eventId: `event:${stableFingerprint(`${applicationId}:prepare:${input.now}`)}`,
+        to: "PREPARING",
+        actor: "user",
+        occurredAt: input.now,
+        reason: "explicitly approved application preparation",
+      }],
+    };
+  } else if (existingApplication.state === "REVISION_REQUIRED") {
+    const revised = transitionApplication(existingApplication, { type: "REVISE", reason: "revised application package prepared" }, {
+      eventId: `event:${stableFingerprint(`${applicationId}:revise:${packageId}`)}`,
+      actor: "user",
+      occurredAt: input.now,
+      idempotencyKey: `revise:${packageId}`,
+    }).application;
+    application = {
+      ...revised,
+      reviewerStatus: "PENDING",
+      groundingBlockers: [],
+    };
+  } else {
+    application = {
+      ...existingApplication,
+      reviewerStatus: "PENDING",
+      groundingBlockers: [],
+    };
+  }
 
   const applicationPackage: ApplicationPackage = {
     packageId,
