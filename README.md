@@ -1,56 +1,57 @@
 # JobLens
 
-**Open-source AI workflow for job discovery, fit assessment, company research, and evidence-grounded application preparation.**
+JobLens is an open-source, evidence-grounded AI workflow for discovering, evaluating, researching, and preparing job applications across multiple sources.
 
-JobLens is designed as a reusable job-search engine that can sit behind a CLI or a conversational AI client. It keeps job discovery, ranking, research, application preparation, and outcome tracking in one auditable workflow without treating AI-generated claims as facts.
+It is designed around a simple interaction model: users can talk to an AI client in natural language while the client calls the same canonical JobLens services used by the CLI. Candidate data and application history live in a private workspace, not in the public framework repository.
 
-> Status: `v0.1.0-alpha.0` — Phase 1 core implementation.
+## v0.1 workflow
 
-## Workflow
-
-```text
-setup
-  -> discover
-  -> normalize / dedupe
-  -> rank (Hard Gate + Fit Score + Confidence)
-  -> research
-  -> explicit user decision
-  -> prepare
-  -> review + grounding
-  -> READY
-  -> user submits externally
-  -> outcome / interview tracking
-```
-
-`READY` means the application package passed the configured review and grounding checks. JobLens v0.1 does **not** automatically submit applications.
+`setup -> discover -> rank -> research -> prepare -> review -> READY -> user submission -> outcome`
 
 ## Why JobLens
 
-- **Multi-source by design** — official APIs, web/search providers, career pages, and manual input can be implemented through source capabilities.
-- **Evidence-grounded** — candidate, job, and company claims can carry provenance instead of relying on conversational memory.
-- **Transparent ranking** — Hard Gate, Fit Score, and Confidence are separate concepts. A fit score is not a hiring probability.
-- **Opportunity before Application** — discovering or ranking a job does not create an application. Application preparation begins only after an explicit decision.
-- **Human approval boundaries** — state transitions such as application preparation and submitted status require explicit user intent.
-- **Agent-agnostic core** — ChatGPT, Claude, Gemini, Codex, CLI, or other clients should reuse the same domain rules rather than duplicate them.
-- **Privacy by architecture** — real resumes, credentials, application history, and private research belong in a separate workspace, not this public repository.
+- **Multi-source discovery**: job-board APIs, web search, company career pages, and manual posting input can plug into the same source boundary.
+- **Transparent fit assessment**: Hard Gate, Fit Score, and Confidence are separate signals. A fit score is not a hiring probability.
+- **Evidence first**: important candidate and company claims are intended to stay traceable to provenance.
+- **Human approval**: high scores never trigger an application automatically. Application preparation and submitted-state changes require explicit user decisions.
+- **Agent agnostic**: ChatGPT, Claude, Codex, Gemini, CLI clients, or future agents can call the same core contracts.
+- **Privacy boundary**: real resumes, credentials, application records, and private preferences belong in a separate workspace.
 
 ## Current implementation
 
-The Phase 1 core currently includes:
+JobLens is currently `v0.1.0-alpha`.
 
-- TypeScript strict-mode domain models for `CandidateProfile`, `JobPosting`, `SourceEvidence`, `CompanyResearch`, `Opportunity`, and `Application`;
-- capability-based source contracts;
-- a manual job source for explicit posting ingestion;
-- deterministic text fingerprinting and staged duplicate assessment;
-- application lifecycle guards, including reviewer/grounding checks for `READY`;
-- idempotent lifecycle events;
-- canonical tool request types for conversational clients;
-- workspace templates and thin agent adapter contracts;
-- unit tests and GitHub Actions CI.
+Implemented foundations include:
 
-## Local development
+- canonical domain models for CandidateProfile, JobPosting, Opportunity, Application, research, and evidence;
+- application state transitions with reviewer/grounding guards and idempotent lifecycle events;
+- source capability contracts and isolated source errors;
+- manual job ingestion;
+- canonical-URL/content based duplicate assessment;
+- configurable ranking with Hard Gate + weighted Fit Score + independent Confidence;
+- discovery orchestration where one failed source does not fail the whole run;
+- an agent-agnostic `SearchProvider` boundary for web discovery;
+- a Saramin Open API adapter for structured Korean job discovery;
+- runtime configuration and a storage port with an in-memory adapter;
+- CI typecheck and unit tests.
 
-Requirements: Node.js 20+.
+## Saramin adapter
+
+The Saramin adapter uses the official job-search endpoint and expects an access key through the environment:
+
+```bash
+export SARAMIN_ACCESS_KEY="..."
+```
+
+Never commit the real key. `.env.example` only documents the variable name.
+
+Saramin API results are intentionally marked as `contentCompleteness: "partial"`. The API provides structured posting metadata, but JobLens does not treat that metadata as the complete job description. A canonical posting or another primary source should be verified before application preparation.
+
+## Web search providers
+
+JobLens does not hard-code one AI vendor's web search. A client can implement the `SearchProvider` contract and expose results through `WebSearchSource`. Search-only results remain visible as discovery hits until another source verifies/materializes the posting.
+
+## Development
 
 ```bash
 npm install
@@ -58,39 +59,10 @@ npm run typecheck
 npm test
 ```
 
-## Repository boundaries
+## Privacy
 
-```text
-joblens/                   # public framework
-  src/
-  agents/
-  docs/
-  tests/
-  workspace-template/
+Do not commit a real user workspace to this public repository. The `workspace-template/` directory contains examples only.
 
-joblens-workspace/         # separate private workspace
-  profile/
-  documents/
-  jobs/
-  opportunities/
-  research/
-  applications/
-  tracker/
-  .env
-```
+## License and upstream inspiration
 
-The private workspace directory is ignored by this repository and should never be committed to a public fork or clone.
-
-## Architecture
-
-See [`docs/architecture.md`](docs/architecture.md) for the current architecture boundary. The public core is intentionally independent of any single job board or AI provider.
-
-## Roadmap to v0.1
-
-Next implementation slices are storage/config, discovery orchestration, a first structured job source, ranking policy, research evidence capture, application artifact preparation, grounding review, and one real end-to-end dogfooding run.
-
-## License
-
-MIT. See [`LICENSE`](LICENSE).
-
-JobLens was inspired in part by workflow concepts from `MadsLorentzen/ai-job-search`. See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for attribution.
+JobLens is released under the MIT License. The project was inspired in part by concepts from Mads Lorentzen's `ai-job-search` project; see `THIRD_PARTY_NOTICES.md` for attribution. JobLens uses its own architecture, source contracts, ranking model, privacy boundary, and agent-agnostic workflow.
