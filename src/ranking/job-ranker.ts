@@ -2,6 +2,7 @@ import type { CandidateProfile } from "../core/domain/candidate-profile.js";
 import type { JobPosting } from "../core/domain/job-posting.js";
 import type { Confidence, HardGateResult } from "../core/domain/common.js";
 import { DEFAULT_FIT_WEIGHTS, DEFAULT_RANKING_POLICY_VERSION } from "./default-policy.js";
+import { matchRelevantExperience } from "./experience-matching.js";
 import {
   locationMatchScore,
   normalizeMatchText,
@@ -79,11 +80,12 @@ function dimensions(job: JobPosting, profile: CandidateProfile): FitDimensionInp
   const roleAndLevelScore = Math.round((roleScore * 0.8) + (levelScore(job, profile) * 0.2));
   const locationScore = locationMatchScore(job.locations, profile.locations);
   const adjacencyScore = preferredScore === undefined ? requiredScore : Math.max(requiredScore, preferredScore);
+  const relevantExperience = matchRelevantExperience(job, profile, requiredScore);
 
   return [
     { id: "roleAndLevel", label: "Role and level", weight: DEFAULT_FIT_WEIGHTS.roleAndLevel, score: roleAndLevelScore, evidenceConfidence, evidenceIds: [] },
     { id: "requiredSkills", label: "Required skills", weight: DEFAULT_FIT_WEIGHTS.requiredSkills, score: requiredScore, evidenceConfidence, evidenceIds: [] },
-    { id: "relevantExperience", label: "Relevant experience", weight: DEFAULT_FIT_WEIGHTS.relevantExperience, score: requiredScore, evidenceConfidence: "MEDIUM", evidenceIds: [], rationale: "v0.2 proxy: required-skill evidence; structured experience matching follows" },
+    { id: "relevantExperience", label: "Relevant experience", weight: DEFAULT_FIT_WEIGHTS.relevantExperience, score: relevantExperience.score, evidenceConfidence: relevantExperience.confidence, evidenceIds: relevantExperience.evidenceIds, rationale: relevantExperience.rationale },
     { id: "evidenceStrength", label: "Evidence strength", weight: DEFAULT_FIT_WEIGHTS.evidenceStrength, score: evidenceConfidence === "HIGH" ? 100 : evidenceConfidence === "MEDIUM" ? 70 : 35, evidenceConfidence, evidenceIds: [] },
     { id: "careerAlignment", label: "Career alignment", weight: DEFAULT_FIT_WEIGHTS.careerAlignment, score: Math.round((roleAndLevelScore + locationScore) / 2), evidenceConfidence: "MEDIUM", evidenceIds: [] },
     { id: "adjacencyAndLearning", label: "Adjacency and learning", weight: DEFAULT_FIT_WEIGHTS.adjacencyAndLearning, score: adjacencyScore, evidenceConfidence: "MEDIUM", evidenceIds: [] },
