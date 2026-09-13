@@ -28,6 +28,8 @@ export * from "./discovery/materialization-service.js";
 export * from "./discovery/discovery-service.js";
 export * from "./ranking/scoring-engine.js";
 export * from "./ranking/default-policy.js";
+export * from "./ranking/matching.js";
+export * from "./ranking/experience-matching.js";
 export * from "./ranking/job-ranker.js";
 export * from "./ranking/ranking-service.js";
 export * from "./research/research-service.js";
