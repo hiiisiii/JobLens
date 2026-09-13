@@ -1,0 +1,31 @@
+{
+  "artifacts": [
+    {
+      "type": "resume",
+      "content": "Backend developer candidate with evidence-backed Node.js and API experience tailored to the selected role.",
+      "claims": [
+        {
+          "claimId": "candidate-node-api",
+          "text": "The candidate has Node.js and API implementation experience.",
+          "evidenceIds": ["candidate-evidence-id-from-profile"]
+        },
+        {
+          "claimId": "role-context",
+          "text": "This draft is tailored to the frozen selected job posting.",
+          "evidenceIds": ["job-snapshot:<job-id>"]
+        }
+      ]
+    },
+    {
+      "type": "self_intro",
+      "content": "I am applying because the verified company and role context aligns with my evidence-backed backend experience.",
+      "claims": [
+        {
+          "claimId": "company-context",
+          "text": "The company context used in this answer was verified during research.",
+          "evidenceIds": ["evidence:<research-evidence-id>"]
+        }
+      ]
+    }
+  ]
+}

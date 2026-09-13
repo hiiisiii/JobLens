@@ -12,35 +12,31 @@ It is designed around a simple interaction model: users can talk to an AI client
 
 - **Multi-source discovery**: job-board APIs, web search, company career pages, and manual posting input can plug into the same source boundary.
 - **Transparent fit assessment**: Hard Gate, Fit Score, and Confidence are separate signals. A fit score is not a hiring probability.
-- **Evidence first**: important candidate and company claims remain traceable to provenance.
-- **Human approval**: high scores never trigger an application automatically. Application preparation and submitted-state changes require explicit user decisions.
+- **Evidence first**: important candidate, job, and company claims remain traceable to frozen evidence.
+- **Human approval**: high scores never trigger an application automatically. Preparation and submitted-state changes require explicit user decisions.
 - **Agent agnostic**: ChatGPT, Claude, Codex, Gemini, CLI clients, or future agents can call the same core contracts.
 - **Privacy boundary**: real resumes, credentials, application records, and private preferences belong in a separate workspace.
 
 ## Current implementation
 
-JobLens is currently `v0.1.0-alpha.7`.
+JobLens is currently `v0.1.0-alpha.8`.
 
 Implemented foundations include:
 
-- canonical domain models for CandidateProfile, JobPosting, Opportunity, Application, CompanyResearch, and SourceEvidence;
-- application state transitions with reviewer/grounding guards and idempotent lifecycle events;
-- source capability contracts and isolated source errors;
-- manual job ingestion and Saramin Open API discovery;
-- canonical-URL/content based duplicate assessment;
-- configurable ranking with Hard Gate + weighted Fit Score + independent Confidence;
-- early-career hard gates for clearly senior roles and high minimum-experience requirements;
-- persistent JobEvaluation and Opportunity entities produced by ranking;
-- idempotent re-ranking with stable opportunity identity per candidate-profile version;
-- preservation of explicit user decision states such as HOLD, SKIPPED, and APPLY_APPROVED during re-ranking;
-- evidence-grounded research import with primary/secondary/community/user provenance;
-- separate verified facts, analysis, community signals, opportunities, risks, and unresolved questions;
-- durable CompanyResearch + SourceEvidence persistence and Opportunity linkage;
-- private workspace storage for jobs, evaluations, opportunities, research, evidence, applications, logs, cache, and documents;
-- validated private CandidateProfile import with overwrite protection;
-- executable `setup`, `discover`, `rank`, and `research` CLI commands;
-- an agent-agnostic `SearchProvider` boundary for web discovery;
-- runtime configuration and storage ports that keep framework logic independent from persistence;
+- canonical domain models for CandidateProfile, JobPosting, Opportunity, Application, CompanyResearch, SourceEvidence, ApplicationPackage, and ApplicationReview;
+- source capability contracts, manual ingestion, Saramin Open API discovery, and duplicate assessment;
+- Hard Gate + weighted Fit Score + independent Confidence, including early-career seniority/experience gates;
+- persistent JobEvaluation and Opportunity entities with stable identities across reranking;
+- evidence-grounded research with verified facts, analysis, community signals, risks, opportunities, and unresolved questions;
+- explicit `--approve` boundary before application preparation;
+- frozen CandidateProfile + JobPosting + CompanyResearch snapshots per application package;
+- evidence-linked artifact claim inventories for resume, self-intro, cover letter, and portfolio brief drafts;
+- separate reviewer result and automated grounding audit before READY;
+- content-hash and frozen-evidence checks that force `REVISION_REQUIRED` when grounding blockers exist;
+- revision lifecycle support back to PREPARING without erasing history;
+- private workspace storage for jobs, evaluations, opportunities, research, evidence, applications, packages, and reviews;
+- executable `setup`, `discover`, `rank`, `research`, `prepare`, and `review` CLI commands;
+- agent-agnostic tool contracts for conversational clients;
 - CI typecheck and unit tests.
 
 ## CLI quick start
@@ -49,13 +45,12 @@ Implemented foundations include:
 npm install
 npm run build
 
-# choose a private workspace outside the public repository
 export JOBLENS_WORKSPACE="$HOME/.joblens/my-search"
 
-# initialize or import a private CandidateProfile
+# 1. private candidate profile
 node dist/cli/bin.js setup --profile /private/path/candidate-profile.json
 
-# manual discovery
+# 2. discovery
 node dist/cli/bin.js discover /private/path/posting.json
 
 # or Saramin structured discovery
@@ -68,13 +63,24 @@ node dist/cli/bin.js discover \
   --posted-after "2026-09-01" \
   --limit 25
 
-# rank and persist JobEvaluation + Opportunity entities
+# 3. rank and persist Opportunity ids
 node dist/cli/bin.js rank
 
-# use the stable opportunity id shown by rank
+# 4. research selected opportunity
 node dist/cli/bin.js research \
   opp:example \
   --input /private/path/research.json
+
+# 5. explicit human approval + evidence-linked draft package
+node dist/cli/bin.js prepare \
+  opp:example \
+  --input /private/path/application-draft.json \
+  --approve
+
+# 6. independent review + grounding audit
+node dist/cli/bin.js review \
+  application:example \
+  --input /private/path/review.json
 ```
 
 The package also exposes a `joblens` bin entrypoint for installed/package-linked use.
@@ -83,9 +89,7 @@ The package also exposes a `joblens` bin entrypoint for installed/package-linked
 
 A user workspace is deliberately separate from the public repository. `initializeWorkspace()` creates private runtime directories and persistent stores under the configured workspace root. The current alpha uses one JSON file per persisted entity with atomic replacement writes; the storage contract remains swappable so a later SQLite adapter can be introduced without changing domain workflows.
 
-Ranking writes content-addressed JobEvaluation records and stable Opportunity records. Re-running rank updates machine-generated evaluation state but does not silently overwrite explicit user decisions such as HOLD, SKIPPED, RESEARCHING, REVIEWABLE, or APPLY_APPROVED.
-
-Research writes CompanyResearch and SourceEvidence records into the same private workspace. Do not put a real workspace inside a public clone.
+Do not put a real workspace inside a public clone.
 
 ## Ranking semantics
 
@@ -95,25 +99,23 @@ JobLens deliberately separates three concepts:
 - **Fit Score**: weighted 0–100 comparison only when a role has not failed the hard gate.
 - **Confidence**: how strongly the available evidence supports the assessment.
 
-For an early-career profile, a role that explicitly requires five or more years is failed before fit scoring. A three-to-four-year minimum is flagged for review. Explicit senior-level titles are also prevented from surfacing as ordinary high-scoring junior matches.
-
-Each ranking pass persists a JobEvaluation and connects it to an Opportunity. A failed hard gate moves a machine-managed opportunity to `EXCLUDED`; otherwise it becomes `EVALUATED`.
+For an early-career profile, a role that explicitly requires five or more years is failed before fit scoring. A three-to-four-year minimum is flagged for review. Explicit senior-level titles are prevented from surfacing as ordinary high-scoring junior matches.
 
 ## Evidence-grounded research
 
 `research` accepts a JSON research package and attaches it to a previously ranked Opportunity. See `workspace-template/research-input.example.json`.
 
-The input deliberately separates raw evidence from findings. Each finding must reference one or more evidence keys, so analysis cannot silently become an unsupported fact. Non-user evidence requires a source URI. Community signals specifically require at least one community-authority source.
+Raw evidence and findings are separate. Each finding must reference evidence keys. Non-user evidence requires a source URI, and community signals require community-authority evidence. Unresolved questions remain explicit instead of being guessed.
 
-Research findings are stored separately as:
+## Application preparation and grounding
 
-- `verified_fact`
-- `analysis`
-- `community_signal`
-- `opportunity`
-- `risk`
+`prepare` requires explicit `--approve`; fit score alone can never create an application. See `workspace-template/application-draft.example.json`.
 
-Unresolved questions remain explicit instead of being guessed. An `EVALUATED` opportunity becomes `REVIEWABLE` after research, while explicit `HOLD` and `APPLY_APPROVED` decisions are preserved. `EXCLUDED` and `SKIPPED` opportunities cannot be researched through this path.
+Preparation freezes the exact CandidateProfile version, JobPosting, and CompanyResearch used for the draft. Each declared factual claim in an artifact must reference evidence from that frozen source set. Candidate evidence comes from the private profile, company evidence comes from research, and a stable job-snapshot evidence id represents the frozen posting.
+
+`review` is a separate step. See `workspace-template/review.example.json`. It combines an independent reviewer verdict with an automatic grounding audit. READY requires reviewer `PASS` and zero grounding blockers. Changed artifact content, claims that point outside the frozen evidence set, or other grounding failures force `REVISION_REQUIRED`.
+
+The core grounding audit validates the declared factual-claim inventory; it does not claim to infer every factual sentence from arbitrary prose by itself. A conversational/AI reviewer should surface undeclared or unsupported claims as BLOCKER findings before marking a package PASS.
 
 ## Saramin discovery
 
@@ -123,11 +125,9 @@ The Saramin source uses the official job-search endpoint and expects an access k
 export SARAMIN_ACCESS_KEY="..."
 ```
 
-The CLI accepts repeated or comma-separated `--keyword` and `--location` values, an ISO-compatible `--posted-after` value, and `--limit` from 1 to 110. Results pass through the same normalization, duplicate assessment, canonical identity, and private persistence path used by the rest of JobLens.
+The CLI accepts repeated or comma-separated `--keyword` and `--location` values, an ISO-compatible `--posted-after` value, and `--limit` from 1 to 110. Structured portal metadata is marked partial and should be verified against a canonical posting before application preparation.
 
-Never commit the real key. `.env.example` only documents the variable name.
-
-Saramin API results are intentionally marked as `contentCompleteness: "partial"`. Structured portal metadata is not treated as a complete job description; a canonical posting or another primary source should be verified before application preparation.
+Never commit the real key.
 
 ## Web search providers
 

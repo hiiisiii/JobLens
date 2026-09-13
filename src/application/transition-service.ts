@@ -9,6 +9,7 @@ import { DomainError } from "../core/errors/domain-error.js";
 export type ApplicationCommand =
   | { type: "START_REVIEW" }
   | { type: "REQUEST_REVISION"; reason: string }
+  | { type: "REVISE"; reason?: string }
   | { type: "MARK_READY" }
   | { type: "MARK_APPLIED"; submittedAt: string; channel: string; userConfirmed: true }
   | { type: "ADD_INTERVIEW_EVENT"; occurredAt: string; round?: string }
@@ -75,6 +76,11 @@ export function transitionApplication(
     case "REQUEST_REVISION":
       assertState(previousState, ["REVIEWING"], command.type);
       nextState = "REVISION_REQUIRED";
+      reason = command.reason;
+      break;
+    case "REVISE":
+      assertState(previousState, ["REVISION_REQUIRED"], command.type);
+      nextState = "PREPARING";
       reason = command.reason;
       break;
     case "MARK_READY":

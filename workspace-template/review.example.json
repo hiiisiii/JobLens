@@ -1,0 +1,10 @@
+{
+  "status": "PASS",
+  "findings": [
+    {
+      "severity": "WARNING",
+      "category": "clarity",
+      "message": "Consider shortening the opening sentence before submission."
+    }
+  ]
+}

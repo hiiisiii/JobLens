@@ -1,10 +1,13 @@
 import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { CandidateProfile } from "../core/domain/candidate-profile.js";
+import type { ApplicationPackage } from "../core/domain/application-package.js";
 import { resolveRuntimeConfig, type RuntimeEnvironment } from "../config/runtime-config.js";
 import { initializeWorkspace } from "../workspace/workspace.js";
 import { rankAndPersistJobs } from "../ranking/ranking-service.js";
 import { persistResearch, type ResearchImportInput } from "../research/research-service.js";
+import { prepareApplication, type PrepareApplicationInput } from "../application/preparation-service.js";
+import { reviewApplication, type ReviewInput } from "../application/review-service.js";
 import { ManualSource, type ManualJobInput } from "../sources/manual/manual-source.js";
 import { SaraminSource } from "../sources/saramin/saramin-source.js";
 import type { SourceContext } from "../sources/source-adapter.js";
@@ -194,10 +197,83 @@ export async function researchCommand(args: string[], env: CliEnvironment): Prom
   ].join("\n");
 }
 
+export async function prepareCommand(args: string[], env: CliEnvironment): Promise<string> {
+  const opportunityId = args[0];
+  if (!opportunityId || opportunityId.startsWith("--")) throw new Error("prepare requires an opportunity id as the first argument");
+  if (!args.includes("--approve")) throw new Error("prepare requires explicit --approve confirmation");
+  const inputPath = optionValue(args, "--input");
+  if (!inputPath || inputPath.startsWith("--")) throw new Error("prepare requires --input <application-draft.json>");
+
+  const root = workspaceRoot(env);
+  const stores = await initializeWorkspace(root);
+  const profile = await loadProfile(root);
+  const draft = await loadJson<PrepareApplicationInput>(resolve(inputPath));
+  const result = await prepareApplication({
+    opportunityId,
+    userApproved: true,
+    draft,
+    profile,
+    opportunityStore: stores.opportunities,
+    jobStore: stores.jobs,
+    researchStore: stores.research,
+    applicationStore: stores.applications,
+    packageStore: stores.packages,
+    now: new Date().toISOString(),
+  });
+  return [
+    `application prepared: ${result.application.applicationId}`,
+    `package: ${result.package.packageId}`,
+    `opportunity: ${result.opportunity.opportunityId} -> ${result.opportunity.state}`,
+    `artifacts: ${result.package.artifacts.length}`,
+    `frozen evidence ids: ${result.package.sourceSnapshot.allowedEvidenceIds.length}`,
+  ].join("\n");
+}
+
+async function latestPackageForApplication(packages: ApplicationPackage[], applicationId: string): Promise<ApplicationPackage | undefined> {
+  return packages
+    .filter((item) => item.applicationId === applicationId)
+    .sort((left, right) => right.preparedAt.localeCompare(left.preparedAt))[0];
+}
+
+export async function reviewCommand(args: string[], env: CliEnvironment): Promise<string> {
+  const applicationId = args[0];
+  if (!applicationId || applicationId.startsWith("--")) throw new Error("review requires an application id as the first argument");
+  const inputPath = optionValue(args, "--input");
+  if (!inputPath || inputPath.startsWith("--")) throw new Error("review requires --input <review.json>");
+
+  const root = workspaceRoot(env);
+  const stores = await initializeWorkspace(root);
+  const reviewInput = await loadJson<ReviewInput>(resolve(inputPath));
+  const requestedPackageId = optionValue(args, "--package");
+  const applicationPackage = requestedPackageId
+    ? await stores.packages.get(requestedPackageId)
+    : await latestPackageForApplication(await stores.packages.list(), applicationId);
+  if (!applicationPackage) throw new Error(`no application package found for ${applicationId}`);
+
+  const result = await reviewApplication({
+    applicationId,
+    packageId: applicationPackage.packageId,
+    reviewInput,
+    applicationStore: stores.applications,
+    packageStore: stores.packages,
+    reviewStore: stores.reviews,
+    now: new Date().toISOString(),
+  });
+  return [
+    `review persisted: ${result.review.reviewId}`,
+    `application: ${result.application.applicationId} -> ${result.application.state}`,
+    `reviewer: ${result.review.reviewerStatus}`,
+    `grounding blockers: ${result.review.groundingBlockers.length}`,
+    `review findings: ${result.review.findings.length}`,
+  ].join("\n");
+}
+
 export async function executeCommand(command: string, args: string[], env: CliEnvironment = process.env): Promise<string> {
   if (command === "setup") return setupCommand(args, env);
   if (command === "discover") return discoverCommand(args, env);
   if (command === "rank") return rankCommand(env);
   if (command === "research") return researchCommand(args, env);
+  if (command === "prepare") return prepareCommand(args, env);
+  if (command === "review") return reviewCommand(args, env);
   throw new Error(`${command} is defined but not executable yet`);
 }
