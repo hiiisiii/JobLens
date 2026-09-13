@@ -61,9 +61,9 @@ test("manual discovery can be invoked through the canonical tool service", async
       input: {
         source: "manual",
         posting: {
-          sourceId: "manual:test",
           url: "https://example.com/jobs/backend",
-          companyName: "Example Co",
+          externalId: "manual:test",
+          company: "Example Co",
           title: "Backend Developer",
           locations: ["Seoul"],
           requiredSkills: ["Node.js"],
