@@ -9,5 +9,7 @@ export * from "./sources/source-adapter.js";
 export * from "./sources/manual/manual-source.js";
 export * from "./discovery/fingerprint.js";
 export * from "./discovery/dedupe.js";
+export * from "./ranking/scoring-engine.js";
+export * from "./ranking/default-policy.js";
 export * from "./application/transition-service.js";
 export * from "./tooling/tool-contract.js";
