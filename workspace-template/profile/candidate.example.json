@@ -1,0 +1,55 @@
+{
+  "profileId": "candidate-example",
+  "version": "v2",
+  "updatedAt": "2026-09-14T00:00:00.000Z",
+  "targetRoles": [
+    "Backend Developer",
+    "Node.js Backend Developer"
+  ],
+  "targetLevels": [
+    "Entry",
+    "Junior"
+  ],
+  "skills": [
+    {
+      "name": "Node.js",
+      "evidenceIds": ["resume:backend"]
+    },
+    {
+      "name": "TypeScript",
+      "evidenceIds": ["portfolio:project-a"]
+    },
+    {
+      "name": "PostgreSQL",
+      "evidenceIds": ["portfolio:project-a"]
+    }
+  ],
+  "experienceEvidence": [
+    {
+      "experienceId": "project:authorization-api",
+      "title": "Authorization and state backend project",
+      "summary": "Implemented member authorization, state transitions, transaction boundaries, and REST APIs.",
+      "capabilities": [
+        "api-design",
+        "authorization",
+        "state-management",
+        "transaction"
+      ],
+      "technologies": [
+        "Node.js",
+        "TypeScript",
+        "Express",
+        "PostgreSQL",
+        "Prisma"
+      ],
+      "evidenceIds": [
+        "portfolio:project-a",
+        "pr:example-1"
+      ]
+    }
+  ],
+  "locations": ["Seoul"],
+  "mustHaves": [],
+  "dealBreakers": [],
+  "documentRefs": ["resume.pdf", "portfolio.pdf"]
+}
