@@ -17,6 +17,16 @@ function profile() {
       { name: "Node.js", evidenceIds: ["resume:backend"] },
       { name: "TypeScript", evidenceIds: ["resume:backend"] },
     ],
+    experienceEvidence: [
+      {
+        experienceId: "project:example",
+        title: "Backend project",
+        summary: "Implemented authorization and transaction-backed REST APIs.",
+        capabilities: ["api-design", "authorization", "transaction"],
+        technologies: ["Node.js", "TypeScript", "PostgreSQL"],
+        evidenceIds: ["portfolio:example", "pr:1"],
+      },
+    ],
     locations: ["Seoul"],
     mustHaves: [],
     dealBreakers: [],
@@ -30,7 +40,23 @@ test("candidate profile validator rejects structurally invalid input", () => {
   assert.throws(() => parseCandidateProfile({ profileId: "candidate" }), /invalid candidate profile/);
 });
 
-test("setup imports a private candidate profile and protects it from accidental overwrite", async () => {
+test("candidate profile validator rejects ungrounded or incomplete experience evidence", () => {
+  const invalid = {
+    ...profile(),
+    experienceEvidence: [{
+      experienceId: "project:bad",
+      title: "Backend project",
+      summary: "Missing evidence ids.",
+      capabilities: ["api-design"],
+      technologies: ["Node.js"],
+      evidenceIds: [],
+    }],
+  };
+  const errors = validateCandidateProfile(invalid);
+  assert.equal(errors.some((error) => error.includes("experienceEvidence")), true);
+});
+
+test("setup imports a private candidate profile with structured experience and protects it from accidental overwrite", async () => {
   const root = await mkdtemp(join(tmpdir(), "joblens-profile-workspace-"));
   const sourceDir = await mkdtemp(join(tmpdir(), "joblens-profile-source-"));
   const sourcePath = join(sourceDir, "candidate.json");
@@ -44,6 +70,7 @@ test("setup imports a private candidate profile and protects it from accidental 
     const stored = JSON.parse(await readFile(join(root, "profile", "candidate-profile.json"), "utf8"));
     assert.equal(stored.profileId, "candidate-1");
     assert.deepEqual(stored.locations, ["Seoul"]);
+    assert.equal(stored.experienceEvidence[0].experienceId, "project:example");
 
     await assert.rejects(
       () => setupCommand(["--profile", sourcePath], env),
