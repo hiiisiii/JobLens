@@ -24,6 +24,7 @@ export * from "./discovery/dedupe.js";
 export * from "./discovery/orchestrator.js";
 export * from "./discovery/persistence.js";
 export * from "./discovery/hit-persistence.js";
+export * from "./discovery/materialization-service.js";
 export * from "./discovery/discovery-service.js";
 export * from "./ranking/scoring-engine.js";
 export * from "./ranking/default-policy.js";

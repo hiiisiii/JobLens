@@ -6,6 +6,7 @@ import type { DiscoveryHitStatus } from "../core/domain/discovery-hit.js";
 import type { OpportunityState } from "../core/domain/opportunity.js";
 import type { RuntimeEnvironment } from "../config/runtime-config.js";
 import { resolveRuntimeConfig } from "../config/runtime-config.js";
+import { materializeDiscoveryHit, type VerifiedPostingInput } from "../discovery/materialization-service.js";
 import { materializeJobPosting } from "../discovery/orchestrator.js";
 import { runDiscovery } from "../discovery/discovery-service.js";
 import { stableFingerprint } from "../discovery/fingerprint.js";
@@ -27,6 +28,8 @@ import type { ApprovalClass, ToolRequestContext, ToolResponse } from "./tool-con
 export type JobLensToolName =
   | "joblens_profile_get"
   | "joblens_discovery_hits_list"
+  | "joblens_discovery_hit_get"
+  | "joblens_materialize_hit"
   | "joblens_jobs_list"
   | "joblens_opportunities_list"
   | "joblens_opportunity_get"
@@ -43,6 +46,8 @@ export type JobLensToolName =
 export type JobLensToolCall =
   | { tool: "joblens_profile_get"; input?: Record<string, never> }
   | { tool: "joblens_discovery_hits_list"; input?: { sourceId?: string; status?: DiscoveryHitStatus; limit?: number } }
+  | { tool: "joblens_discovery_hit_get"; input: { hitId: string } }
+  | { tool: "joblens_materialize_hit"; input: { hitId: string; verifiedPosting: VerifiedPostingInput } }
   | { tool: "joblens_jobs_list"; input?: { limit?: number } }
   | { tool: "joblens_opportunities_list"; input?: { states?: OpportunityState[]; limit?: number } }
   | { tool: "joblens_opportunity_get"; input: { opportunityId: string } }
@@ -79,6 +84,8 @@ export interface ToolTrace {
 const APPROVAL: Record<JobLensToolName, ApprovalClass> = {
   joblens_profile_get: "READ_ONLY",
   joblens_discovery_hits_list: "READ_ONLY",
+  joblens_discovery_hit_get: "READ_ONLY",
+  joblens_materialize_hit: "LOCAL_MUTATION",
   joblens_jobs_list: "READ_ONLY",
   joblens_opportunities_list: "READ_ONLY",
   joblens_opportunity_get: "READ_ONLY",
@@ -166,6 +173,24 @@ export class JobLensToolService {
         if (call.input?.status) hits = hits.filter((item) => item.status === call.input?.status);
         hits.sort((a, b) => b.lastSeenAt.localeCompare(a.lastSeenAt));
         return limit(hits, call.input?.limit);
+      }
+      case "joblens_discovery_hit_get": {
+        const hitId = requireId(call.input.hitId, "hitId");
+        const hit = await stores.discoveryHits.get(hitId);
+        if (!hit) throw new Error(`discovery hit not found: ${hitId}`);
+        entityRefs.push(hitId);
+        return hit;
+      }
+      case "joblens_materialize_hit": {
+        const result = await materializeDiscoveryHit({
+          hitId: requireId(call.input.hitId, "hitId"),
+          verifiedPosting: call.input.verifiedPosting,
+          discoveryHitStore: stores.discoveryHits,
+          jobStore: stores.jobs,
+          now,
+        });
+        entityRefs.push(result.hit.hitId, result.job.id);
+        return result;
       }
       case "joblens_jobs_list": {
         const jobs = await stores.jobs.list();

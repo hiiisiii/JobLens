@@ -6,7 +6,7 @@ It is designed around a simple interaction model: users can talk to an AI client
 
 ## v0.1 workflow
 
-`setup -> discover -> rank -> research -> prepare -> review -> READY -> user submission -> outcome`
+`setup -> discover -> verify/materialize when needed -> rank -> research -> prepare -> review -> READY -> user submission -> outcome`
 
 ## Why JobLens
 
@@ -19,7 +19,7 @@ It is designed around a simple interaction model: users can talk to an AI client
 
 ## Current implementation
 
-JobLens is currently `v0.1.0-alpha.12`.
+JobLens is currently `v0.1.0-alpha.13`.
 
 Implemented foundations include:
 
@@ -27,6 +27,8 @@ Implemented foundations include:
 - source capability contracts, manual ingestion, Saramin Open API discovery, web-search discovery, and duplicate assessment;
 - durable search/discovery hits with stable ids, status, source provenance, and query identity;
 - client-assisted web search ingestion so an AI host can persist its own search results without hard-wiring JobLens to one search vendor;
+- explicit discovery-hit verification/materialization that requires fetched posting content before a search hit can become a canonical JobPosting;
+- verification metadata on materialized web hits, including verified source URL, time, and content hash;
 - Hard Gate + weighted Fit Score + independent Confidence, including early-career seniority/experience gates;
 - persistent JobEvaluation and Opportunity entities with stable identities across reranking;
 - evidence-grounded research with verified facts, analysis, community signals, risks, opportunities, and unresolved questions;
@@ -61,6 +63,8 @@ node dist/cli/bin.js outcome application:example --input /private/path/outcome.j
 
 Saramin structured discovery is also executable when `SARAMIN_ACCESS_KEY` is supplied through the environment. Never commit the real key.
 
+The alpha.13 discovery-hit materialization path is exposed through the canonical tool/MCP boundary. A CLI wrapper for this specific step can be added later without changing the underlying service contract.
+
 ## MCP quick start
 
 JobLens includes a local stdio MCP adapter:
@@ -82,11 +86,11 @@ The MCP layer is deliberately thin: request ids are generated server-side, calls
 
 ## Conversational clients
 
-`JobLensToolService` is the canonical transport-neutral boundary for AI clients. It exposes stable tools such as `joblens_profile_get`, `joblens_discovery_hits_list`, `joblens_opportunities_list`, `joblens_research`, `joblens_prepare`, `joblens_review`, and `joblens_record_outcome` while re-reading the private workspace on every invocation.
+`JobLensToolService` is the canonical transport-neutral boundary for AI clients. It exposes stable tools such as `joblens_profile_get`, `joblens_discovery_hits_list`, `joblens_discovery_hit_get`, `joblens_materialize_hit`, `joblens_opportunities_list`, `joblens_research`, `joblens_prepare`, `joblens_review`, and `joblens_record_outcome` while re-reading the private workspace on every invocation.
 
 Chat memory is not authoritative state. Durable ids such as `hitId`, `opportunityId`, and `applicationId` must be re-used or re-read before mutations; a stale conversational ordinal like “#3” must not silently identify a different job.
 
-Tool actions are classified as `READ_ONLY`, `LOCAL_MUTATION`, `EXPLICIT_DECISION`, or reserved `EXTERNAL_ACTION`. `joblens_prepare` requires explicit approval, and APPLIED still requires explicit user confirmation. Tool-call traces record metadata and resulting entity ids but intentionally exclude raw candidate/job content and credentials.
+Tool actions are classified as `READ_ONLY`, `LOCAL_MUTATION`, `EXPLICIT_DECISION`, or reserved `EXTERNAL_ACTION`. `joblens_materialize_hit` is a local state mutation, while `joblens_prepare` requires explicit approval and APPLIED still requires explicit user confirmation. Tool-call traces record metadata and resulting entity ids but intentionally exclude raw candidate/job content and credentials.
 
 See `docs/conversational-tools.md` for the canonical tool list, local MCP setup, and remote-deployment boundary.
 
@@ -99,6 +103,8 @@ Do not put a real workspace inside a public clone.
 ## Ranking semantics
 
 JobLens separates **Hard Gate** (PASS/FLAG/FAIL), **Fit Score** (weighted 0–100 comparison), and **Confidence** (strength of available evidence). A fit score is not a hiring probability. Early-career profiles fail explicitly senior roles or roles requiring five or more years before ordinary scoring; three-to-four-year requirements are flagged for review.
+
+Only canonical `JobPosting` records are rankable. A raw web-search `DiscoveryHitRecord` stays outside ranking until its actual posting content has been fetched and materialized.
 
 ## Evidence-grounded research
 
@@ -116,9 +122,11 @@ JobLens does **not** submit applications in v0.1. The user submits through the e
 
 ## Web search providers
 
-JobLens does not hard-code one AI vendor's web search. Alpha.12 adds an executable **client-assisted** path: a conversational host can use its own web-search capability and pass `{ providerId, query, results }` to `joblens_discover` with `source: "web_search"`.
+JobLens does not hard-code one AI vendor's web search. A conversational host can use its own web-search capability and pass `{ providerId, query, results }` to `joblens_discover` with `source: "web_search"`.
 
-Those results are persisted under the private workspace as stable `DiscoveryHitRecord` entities and can be recovered later with `joblens_discovery_hits_list`. Search snippets are deliberately **not** promoted to canonical `JobPosting` records and cannot enter ranking by themselves. A later materialization/verification step must capture the actual posting from an authoritative or explicit source before the role is ranked or used for application preparation.
+Those results are persisted under the private workspace as stable `DiscoveryHitRecord` entities and can be recovered later with `joblens_discovery_hits_list` or read individually with `joblens_discovery_hit_get`. Search snippets are deliberately **not** promoted to canonical `JobPosting` records and cannot enter ranking by themselves.
+
+Alpha.13 adds the explicit promotion step. After the client opens/fetches the actual posting page, it calls `joblens_materialize_hit` with the stable `hitId` plus the verified posting content. JobLens stores a verification record with the canonicalized source URL, verification timestamp, and content hash, persists/merges the canonical JobPosting through the normal duplicate pipeline, and marks the hit `MATERIALIZED`. Repeating the same materialization is idempotent.
 
 The lower-level `SearchProvider` and `WebSearchSource` contracts remain provider-agnostic, so a direct search API adapter can be added later without changing the domain workflow.
 
