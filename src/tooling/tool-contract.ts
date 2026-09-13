@@ -44,10 +44,33 @@ export interface ResearchInput {
   refresh?: boolean;
 }
 
+export interface ToolArtifactDraft {
+  type: "resume" | "self_intro" | "cover_letter" | "portfolio_brief";
+  content: string;
+  claims: Array<{
+    claimId?: string;
+    text: string;
+    evidenceIds: string[];
+  }>;
+}
+
 export interface PrepareInput {
   opportunityId: string;
   userApproved: true;
   artifactTypes?: Array<"resume" | "self_intro" | "cover_letter" | "portfolio_brief">;
+  artifacts?: ToolArtifactDraft[];
+}
+
+export interface ReviewApplicationInput {
+  applicationId: string;
+  packageId?: string;
+  reviewerStatus: "PASS" | "FAIL";
+  findings?: Array<{
+    severity: "BLOCKER" | "WARNING";
+    category: "grounding" | "relevance" | "clarity" | "consistency" | "other";
+    message: string;
+    artifactId?: string;
+  }>;
 }
 
 export interface RecordOutcomeInput {
