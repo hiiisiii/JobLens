@@ -38,6 +38,10 @@ function job(overrides = {}) {
   };
 }
 
+function dimension(result, id) {
+  return result.assessment.dimensions.find((item) => item.id === id);
+}
+
 test("matching early-career backend role can pass with a high fit score", () => {
   const result = rankJob(job(), profile);
   assert.equal(result.assessment.hardGate, "PASS");
@@ -63,4 +67,37 @@ test("explicit senior title fails and sorts below viable jobs", () => {
   const ranked = rankJobs([senior, viable], profile);
   assert.equal(ranked[0].job.id, "job:viable");
   assert.equal(ranked[1].assessment.hardGate, "FAIL");
+});
+
+test("Korean new-grad server title and Seoul location align with English backend targets", () => {
+  const result = rankJob(job({
+    title: "[Platform] 서버 개발자 (신입)",
+    locations: ["서울"],
+    requiredSkills: ["NodeJS", "TypeScript", "Postgres"],
+    fullText: "신입 서버 개발자로 NodeJS, TypeScript, Postgres 기반 API를 개발합니다.",
+  }), profile);
+  assert.equal(result.assessment.hardGate, "PASS");
+  assert.equal((dimension(result, "roleAndLevel")?.score ?? 0) >= 90, true);
+  assert.equal((dimension(result, "careerAlignment")?.score ?? 0) >= 90, true);
+  assert.equal((result.assessment.fitScore ?? 0) >= 85, true);
+});
+
+test("generic SQL evidence does not satisfy a specific MySQL requirement", () => {
+  const sqlOnlyProfile = {
+    ...profile,
+    skills: [{ name: "SQL", evidenceIds: ["resume"] }],
+  };
+  const result = rankJob(job({ requiredSkills: ["MySQL"] }), sqlOnlyProfile);
+  assert.equal(dimension(result, "requiredSkills")?.score, 0);
+});
+
+test("specific PostgreSQL evidence can satisfy a generic SQL requirement", () => {
+  const result = rankJob(job({ requiredSkills: ["SQL"] }), profile);
+  assert.equal(dimension(result, "requiredSkills")?.score, 100);
+});
+
+test("missing preferred skills do not create a free adjacency score", () => {
+  const result = rankJob(job({ requiredSkills: ["NestJS"], preferredSkills: [] }), profile);
+  assert.equal(dimension(result, "requiredSkills")?.score, 0);
+  assert.equal(dimension(result, "adjacencyAndLearning")?.score, 0);
 });
