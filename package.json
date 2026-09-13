@@ -1,6 +1,6 @@
 {
   "name": "joblens",
-  "version": "0.1.0-alpha.2",
+  "version": "0.1.0-alpha.3",
   "private": false,
   "type": "module",
   "description": "Open-source AI workflow for discovering, researching, ranking, and preparing job applications across multiple sources.",
@@ -8,11 +8,15 @@
   "engines": {
     "node": ">=20"
   },
+  "bin": {
+    "joblens": "dist/cli/bin.js"
+  },
   "scripts": {
     "clean": "rm -rf dist",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "npm run build && node --test tests/unit/*.test.mjs"
+    "test": "npm run build && node --test tests/unit/*.test.mjs",
+    "joblens": "npm run build --silent && node dist/cli/bin.js"
   },
   "devDependencies": {
     "typescript": "^5.8.3",
