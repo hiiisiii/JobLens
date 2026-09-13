@@ -2,7 +2,7 @@
 
 JobLens is an open-source, evidence-grounded AI workflow for discovering, evaluating, researching, and preparing job applications across multiple sources.
 
-It is designed around a simple interaction model: users can talk to an AI client in natural language while the client calls the same canonical JobLens services used by the CLI. Candidate data and application history live in a private workspace, not in the public framework repository.
+It is designed around a simple interaction model: users can talk to an AI client in natural language while the client calls the same canonical JobLens services used by the CLI or MCP transport. Candidate data and application history live in a private workspace, not in the public framework repository.
 
 ## v0.1 workflow
 
@@ -19,7 +19,7 @@ It is designed around a simple interaction model: users can talk to an AI client
 
 ## Current implementation
 
-JobLens is currently `v0.1.0-alpha.10`.
+JobLens is currently `v0.1.0-alpha.11`.
 
 Implemented foundations include:
 
@@ -35,8 +35,10 @@ Implemented foundations include:
 - executable `setup`, `discover`, `rank`, `research`, `prepare`, `review`, and `outcome` CLI commands;
 - transport-neutral `JobLensToolService` exposing canonical read/workflow tools to conversational clients;
 - public `JOBLENS_TOOL_DEFINITIONS` manifest with tool descriptions, approval classes, and JSON-schema-shaped inputs;
+- actual local MCP stdio server built on the official MCP TypeScript SDK v2;
+- `joblens-mcp` executable that maps MCP tool calls into the same `JobLensToolService` used by other clients;
 - metadata-only tool-call audit traces under the private workspace, without raw prompts/documents/secrets;
-- CI typecheck and unit tests.
+- MCP stdio integration coverage in addition to ordinary typecheck/unit tests.
 
 ## CLI quick start
 
@@ -57,15 +59,34 @@ node dist/cli/bin.js outcome application:example --input /private/path/outcome.j
 
 Saramin structured discovery is also executable when `SARAMIN_ACCESS_KEY` is supplied through the environment. Never commit the real key.
 
+## MCP quick start
+
+JobLens now includes a local stdio MCP adapter:
+
+```bash
+npm install
+npm run build
+
+export JOBLENS_WORKSPACE="$HOME/.joblens/my-search"
+export JOBLENS_WORKSPACE_ID="my-search"
+node dist/mcp/bin.js
+```
+
+Installed/package-linked use can invoke the `joblens-mcp` bin. Local MCP hosts spawn this process and communicate over stdio; users do not need to operate the JobLens CLI for each workflow step.
+
+The MCP layer is deliberately thin: request ids are generated server-side, calls are forwarded into `JobLensToolService`, and the same approval/grounding/lifecycle rules apply regardless of client. The adapter uses the official `@modelcontextprotocol/server` v2 package.
+
+**Important:** local stdio MCP does not expose a private workstation to a cloud ChatGPT session. A future remote ChatGPT/App deployment still needs a remote transport plus authentication, TLS, and workspace authorization.
+
 ## Conversational clients
 
 `JobLensToolService` is the canonical transport-neutral boundary for AI clients. It exposes stable tools such as `joblens_profile_get`, `joblens_opportunities_list`, `joblens_research`, `joblens_prepare`, `joblens_review`, and `joblens_record_outcome` while re-reading the private workspace on every invocation.
 
-This means chat memory is not authoritative state. Durable ids such as `opportunityId` and `applicationId` must be re-used or re-read before mutations; a stale conversational ordinal like “#3” must not silently identify a different job.
+Chat memory is not authoritative state. Durable ids such as `opportunityId` and `applicationId` must be re-used or re-read before mutations; a stale conversational ordinal like “#3” must not silently identify a different job.
 
 Tool actions are classified as `READ_ONLY`, `LOCAL_MUTATION`, `EXPLICIT_DECISION`, or reserved `EXTERNAL_ACTION`. `joblens_prepare` requires explicit approval, and APPLIED still requires explicit user confirmation. Tool-call traces record metadata and resulting entity ids but intentionally exclude raw candidate/job content and credentials.
 
-See `docs/conversational-tools.md` for the canonical tool list and integration boundary. Alpha.10 is **MCP-ready but does not yet include an MCP transport server**; MCP/HTTP/SDK adapters should remain thin and call this service rather than duplicate business rules.
+See `docs/conversational-tools.md` for the canonical tool list, local MCP setup, and remote-deployment boundary.
 
 ## Private workspace
 
