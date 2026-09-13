@@ -19,7 +19,7 @@ It is designed around a simple interaction model: users can talk to an AI client
 
 ## Current implementation
 
-JobLens is currently `v0.1.0-alpha.5`.
+JobLens is currently `v0.1.0-alpha.6`.
 
 Implemented foundations include:
 
@@ -30,9 +30,12 @@ Implemented foundations include:
 - canonical-URL/content based duplicate assessment;
 - configurable ranking with Hard Gate + weighted Fit Score + independent Confidence;
 - early-career hard gates for clearly senior roles and high minimum-experience requirements;
+- persistent JobEvaluation and Opportunity entities produced by ranking;
+- idempotent re-ranking with stable opportunity identity per candidate-profile version;
+- preservation of explicit user decision states such as HOLD, SKIPPED, and APPLY_APPROVED during re-ranking;
 - discovery orchestration where one failed source does not fail the whole run;
 - persistent discovery state through a local JSON-directory storage adapter;
-- private workspace initialization for jobs, opportunities, applications, research, logs, cache, and documents;
+- private workspace initialization for jobs, evaluations, opportunities, applications, research, logs, cache, and documents;
 - canonical job identity preservation when later sources rediscover the same posting;
 - validated private CandidateProfile import with overwrite protection;
 - executable `setup`, manual/structured `discover`, and `rank` CLI commands;
@@ -72,7 +75,7 @@ node dist/cli/bin.js discover \
   --posted-after "2026-09-01" \
   --limit 25
 
-# rank all persisted postings against the private candidate profile
+# rank all persisted postings and persist JobEvaluation + Opportunity entities
 node dist/cli/bin.js rank
 ```
 
@@ -81,6 +84,8 @@ The package also exposes a `joblens` bin entrypoint for installed/package-linked
 ## Private workspace
 
 A user workspace is deliberately separate from the public repository. `initializeWorkspace()` creates the private runtime directories and persistent stores under the configured workspace root. The current alpha uses one JSON file per persisted entity with atomic replacement writes; the storage contract remains swappable so a later SQLite adapter can be introduced without changing the domain workflow.
+
+Ranking now writes immutable/content-addressed JobEvaluation records and stable Opportunity records. Re-running rank updates machine-generated evaluation state but does not silently overwrite explicit user decisions such as HOLD, SKIPPED, RESEARCHING, REVIEWABLE, or APPLY_APPROVED.
 
 Do not put a real workspace inside a public clone. Real resumes, application history, private preferences, candidate profiles, and credentials should stay outside the repository.
 
@@ -93,6 +98,8 @@ JobLens deliberately separates three concepts:
 - **Confidence**: how strongly the available evidence supports the assessment.
 
 For an early-career profile, a role that explicitly requires five or more years is failed before fit scoring. A three-to-four-year minimum is flagged for review. Explicit senior-level titles are also prevented from surfacing as ordinary high-scoring junior matches.
+
+Each ranking pass persists a JobEvaluation and connects it to an Opportunity. A failed hard gate moves a machine-managed opportunity to `EXCLUDED`; otherwise it becomes `EVALUATED`. Explicit user-decision states are preserved on later ranking passes.
 
 ## Saramin discovery
 

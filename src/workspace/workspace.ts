@@ -2,11 +2,12 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { Application } from "../core/domain/application.js";
 import type { JobPosting } from "../core/domain/job-posting.js";
-import type { Opportunity } from "../core/domain/opportunity.js";
+import type { JobEvaluation, Opportunity } from "../core/domain/opportunity.js";
 import { JsonDirectoryStore } from "../storage/json-directory-store.js";
 
 export interface WorkspaceStores {
   jobs: JsonDirectoryStore<JobPosting>;
+  evaluations: JsonDirectoryStore<JobEvaluation>;
   opportunities: JsonDirectoryStore<Opportunity>;
   applications: JsonDirectoryStore<Application>;
 }
@@ -15,6 +16,7 @@ const PRIVATE_DIRECTORIES = [
   "profile",
   "documents",
   "jobs",
+  "evaluations",
   "opportunities",
   "research",
   "applications",
@@ -30,6 +32,7 @@ export async function initializeWorkspace(rootDir: string): Promise<WorkspaceSto
 
   return {
     jobs: new JsonDirectoryStore<JobPosting>(join(rootDir, "jobs")),
+    evaluations: new JsonDirectoryStore<JobEvaluation>(join(rootDir, "evaluations")),
     opportunities: new JsonDirectoryStore<Opportunity>(join(rootDir, "opportunities")),
     applications: new JsonDirectoryStore<Application>(join(rootDir, "applications")),
   };

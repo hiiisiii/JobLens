@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 import type { CandidateProfile } from "../core/domain/candidate-profile.js";
 import { resolveRuntimeConfig, type RuntimeEnvironment } from "../config/runtime-config.js";
 import { initializeWorkspace } from "../workspace/workspace.js";
-import { rankJobs } from "../ranking/job-ranker.js";
+import { rankAndPersistJobs } from "../ranking/ranking-service.js";
 import { ManualSource, type ManualJobInput } from "../sources/manual/manual-source.js";
 import { SaraminSource } from "../sources/saramin/saramin-source.js";
 import type { SourceContext } from "../sources/source-adapter.js";
@@ -148,12 +148,21 @@ export async function rankCommand(env: CliEnvironment): Promise<string> {
   const stores = await initializeWorkspace(root);
   const profile = await loadProfile(root);
   const jobs = await stores.jobs.list();
-  const ranked = rankJobs(jobs, profile);
-  if (ranked.length === 0) return "no persisted jobs to rank";
-  return ranked.map(({ job, assessment }, index) => {
+  const result = await rankAndPersistJobs({
+    jobs,
+    profile,
+    evaluationStore: stores.evaluations,
+    opportunityStore: stores.opportunities,
+    now: new Date().toISOString(),
+  });
+  if (result.ranked.length === 0) return "no persisted jobs to rank";
+  const lines = result.ranked.map(({ job, assessment }, index) => {
     const score = assessment.fitScore === undefined ? "—" : String(assessment.fitScore);
     return `${index + 1}. [${assessment.hardGate}] ${score}/100 (${assessment.confidence}) ${job.companyName} — ${job.title}`;
-  }).join("\n");
+  });
+  lines.push(`opportunities: ${result.createdOpportunities} created, ${result.updatedOpportunities} updated`);
+  lines.push(`evaluations persisted: ${result.evaluations.length}`);
+  return lines.join("\n");
 }
 
 export async function executeCommand(command: string, args: string[], env: CliEnvironment = process.env): Promise<string> {
