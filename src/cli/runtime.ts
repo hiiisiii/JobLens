@@ -1,16 +1,18 @@
 import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { CandidateProfile } from "../core/domain/candidate-profile.js";
+import { resolveRuntimeConfig, type RuntimeEnvironment } from "../config/runtime-config.js";
 import { initializeWorkspace } from "../workspace/workspace.js";
 import { rankJobs } from "../ranking/job-ranker.js";
 import { ManualSource, type ManualJobInput } from "../sources/manual/manual-source.js";
+import { SaraminSource } from "../sources/saramin/saramin-source.js";
 import type { SourceContext } from "../sources/source-adapter.js";
 import { materializeJobPosting } from "../discovery/orchestrator.js";
+import { runDiscovery } from "../discovery/discovery-service.js";
 import { readCandidateProfileFile, writeCandidateProfileFile } from "../profile/candidate-profile-file.js";
+import { parseDiscoverRequest } from "./discovery-options.js";
 
-export interface CliEnvironment {
-  JOBLENS_WORKSPACE?: string;
-}
+export interface CliEnvironment extends RuntimeEnvironment {}
 
 function workspaceRoot(env: CliEnvironment): string {
   return resolve(env.JOBLENS_WORKSPACE ?? ".joblens-workspace");
@@ -75,18 +77,17 @@ export async function setupCommand(args: string[], env: CliEnvironment): Promise
   }
 }
 
-export async function discoverManualCommand(args: string[], env: CliEnvironment): Promise<string> {
-  const inputPath = args[0];
-  if (!inputPath) throw new Error("discover requires a manual posting JSON file path in alpha.3");
+async function discoverManual(path: string, env: CliEnvironment): Promise<string> {
   const root = workspaceRoot(env);
   const stores = await initializeWorkspace(root);
-  const input = await loadJson<ManualJobInput>(resolve(inputPath));
+  const input = await loadJson<ManualJobInput>(resolve(path));
   const source = new ManualSource();
   const now = new Date().toISOString();
+  const config = resolveRuntimeConfig({ workspaceDir: root }, env);
   const context: SourceContext = {
     requestId: `cli-${Date.now()}`,
     now,
-    timeoutMs: 15_000,
+    timeoutMs: config.sourceTimeoutMs,
   };
   const ingested = await source.ingest(input, context);
   if (!ingested.ok) throw new Error(ingested.error.message);
@@ -95,6 +96,51 @@ export async function discoverManualCommand(args: string[], env: CliEnvironment)
   const job = materializeJobPosting(normalized.data, now);
   await stores.jobs.put(job.id, job);
   return `discovered and persisted 1 job\n${job.id}  ${job.companyName} — ${job.title}`;
+}
+
+async function discoverSaramin(args: string[], env: CliEnvironment): Promise<string> {
+  const request = parseDiscoverRequest(args);
+  if (request.kind !== "saramin") throw new Error("internal discover routing error");
+
+  const root = workspaceRoot(env);
+  const stores = await initializeWorkspace(root);
+  const config = resolveRuntimeConfig({ workspaceDir: root }, env);
+  if (!config.sources.saramin.accessKey) {
+    throw new Error("Saramin discovery requires SARAMIN_ACCESS_KEY in the environment");
+  }
+
+  const now = new Date().toISOString();
+  const context: SourceContext = {
+    requestId: `cli-${Date.now()}`,
+    now,
+    timeoutMs: config.sourceTimeoutMs,
+  };
+  const source = new SaraminSource({ accessKey: config.sources.saramin.accessKey });
+  const result = await runDiscovery({
+    sources: [source],
+    query: request.query,
+    context,
+    jobStore: stores.jobs,
+  });
+
+  if (result.discovery.jobs.length === 0 && result.discovery.sourceFailures.length > 0) {
+    const failure = result.discovery.sourceFailures[0];
+    throw new Error(`Saramin discovery failed: ${failure?.error.code ?? "UNKNOWN"}: ${failure?.error.message ?? "unknown error"}`);
+  }
+
+  const lines = [
+    `Saramin discovery complete: ${result.discovery.jobs.length} materialized job(s)`,
+    `persisted: ${result.persistence.created} created, ${result.persistence.updated} updated`,
+  ];
+  if (result.discovery.warnings.length > 0) lines.push(`warnings: ${result.discovery.warnings.length}`);
+  if (result.persistence.possibleDuplicates.length > 0) lines.push(`possible duplicates: ${result.persistence.possibleDuplicates.length}`);
+  return lines.join("\n");
+}
+
+export async function discoverCommand(args: string[], env: CliEnvironment): Promise<string> {
+  const request = parseDiscoverRequest(args);
+  if (request.kind === "manual") return discoverManual(request.path, env);
+  return discoverSaramin(args, env);
 }
 
 export async function rankCommand(env: CliEnvironment): Promise<string> {
@@ -112,7 +158,7 @@ export async function rankCommand(env: CliEnvironment): Promise<string> {
 
 export async function executeCommand(command: string, args: string[], env: CliEnvironment = process.env): Promise<string> {
   if (command === "setup") return setupCommand(args, env);
-  if (command === "discover") return discoverManualCommand(args, env);
+  if (command === "discover") return discoverCommand(args, env);
   if (command === "rank") return rankCommand(env);
   throw new Error(`${command} is defined but not executable yet`);
 }

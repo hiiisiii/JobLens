@@ -1,10 +1,17 @@
 import type { JobPosting } from "../core/domain/job-posting.js";
 import type { EntityStore } from "../storage/store.js";
-import type { JobSource, SearchQuery, SourceContext } from "../sources/source-adapter.js";
+import type {
+  DetailJobSource,
+  JobSource,
+  NormalizingJobSource,
+  SearchableJobSource,
+  SearchQuery,
+  SourceContext,
+} from "../sources/source-adapter.js";
 import { discoverJobs, type DiscoveryResult } from "./orchestrator.js";
 import { persistDiscoveredJobs, type PersistDiscoveryResult } from "./persistence.js";
 
-type DiscoverySource = JobSource & Record<string, unknown>;
+export type DiscoverySource = JobSource & Partial<SearchableJobSource & DetailJobSource & NormalizingJobSource>;
 
 export interface DiscoveryRunResult {
   discovery: DiscoveryResult;

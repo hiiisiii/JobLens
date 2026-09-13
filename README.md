@@ -19,7 +19,7 @@ It is designed around a simple interaction model: users can talk to an AI client
 
 ## Current implementation
 
-JobLens is currently `v0.1.0-alpha.4`.
+JobLens is currently `v0.1.0-alpha.5`.
 
 Implemented foundations include:
 
@@ -35,9 +35,9 @@ Implemented foundations include:
 - private workspace initialization for jobs, opportunities, applications, research, logs, cache, and documents;
 - canonical job identity preservation when later sources rediscover the same posting;
 - validated private CandidateProfile import with overwrite protection;
-- executable `setup`, manual `discover`, and `rank` CLI commands;
+- executable `setup`, manual/structured `discover`, and `rank` CLI commands;
+- executable Saramin Open API discovery with keyword, location, freshness, and result-limit options;
 - an agent-agnostic `SearchProvider` boundary for web discovery;
-- a Saramin Open API adapter for structured Korean job discovery;
 - runtime configuration and storage ports that keep framework logic independent from persistence;
 - CI typecheck and unit tests.
 
@@ -59,10 +59,20 @@ node dist/cli/bin.js setup --profile /private/path/candidate-profile.json
 # explicit replacement is required if a profile already exists
 node dist/cli/bin.js setup --profile /private/path/candidate-profile-v2.json --replace
 
-# alpha.4 manual discovery path
+# manual discovery remains supported
 node dist/cli/bin.js discover /private/path/posting.json
 
-# rank persisted postings
+# Saramin structured discovery
+export SARAMIN_ACCESS_KEY="..."
+node dist/cli/bin.js discover \
+  --source saramin \
+  --keyword "Node.js" \
+  --keyword "백엔드,TypeScript" \
+  --location "서울" \
+  --posted-after "2026-09-01" \
+  --limit 25
+
+# rank all persisted postings against the private candidate profile
 node dist/cli/bin.js rank
 ```
 
@@ -84,13 +94,15 @@ JobLens deliberately separates three concepts:
 
 For an early-career profile, a role that explicitly requires five or more years is failed before fit scoring. A three-to-four-year minimum is flagged for review. Explicit senior-level titles are also prevented from surfacing as ordinary high-scoring junior matches.
 
-## Saramin adapter
+## Saramin discovery
 
-The Saramin adapter uses the official job-search endpoint and expects an access key through the environment:
+The Saramin source uses the official job-search endpoint and expects an access key through the environment:
 
 ```bash
 export SARAMIN_ACCESS_KEY="..."
 ```
+
+The CLI accepts repeated or comma-separated `--keyword` and `--location` values, an ISO-compatible `--posted-after` value, and `--limit` from 1 to 110. Results pass through the same normalization, duplicate assessment, canonical identity, and private persistence path used by the rest of JobLens.
 
 Never commit the real key. `.env.example` only documents the variable name.
 
