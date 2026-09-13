@@ -3,8 +3,8 @@ import { join, resolve } from "node:path";
 import type { CandidateProfile } from "../core/domain/candidate-profile.js";
 import { initializeWorkspace } from "../workspace/workspace.js";
 import { rankJobs } from "../ranking/job-ranker.js";
-import type { JobPosting } from "../core/domain/job-posting.js";
 import { ManualSource, type ManualJobInput } from "../sources/manual/manual-source.js";
+import type { SourceContext } from "../sources/source-adapter.js";
 import { materializeJobPosting } from "../discovery/orchestrator.js";
 
 export interface CliEnvironment {
@@ -57,13 +57,17 @@ export async function discoverManualCommand(args: string[], env: CliEnvironment)
   const input = await loadJson<ManualJobInput>(resolve(inputPath));
   const source = new ManualSource();
   const now = new Date().toISOString();
-  const context = { now };
+  const context: SourceContext = {
+    requestId: `cli-${Date.now()}`,
+    now,
+    timeoutMs: 15_000,
+  };
   const ingested = await source.ingest(input, context);
   if (!ingested.ok) throw new Error(ingested.error.message);
   const normalized = await source.normalize(ingested.data, context);
   if (!normalized.ok) throw new Error(normalized.error.message);
   const job = materializeJobPosting(normalized.data, now);
-  await stores.jobs.save(job.id, job);
+  await stores.jobs.put(job.id, job);
   return `discovered and persisted 1 job\n${job.id}  ${job.companyName} — ${job.title}`;
 }
 
