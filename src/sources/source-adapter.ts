@@ -8,6 +8,14 @@ export type SourceKind =
   | "web_search"
   | "manual_input";
 
+export type SourceCapability =
+  | "HEALTH"
+  | "SEARCH"
+  | "DETAIL"
+  | "MANUAL_INGEST"
+  | "NORMALIZE"
+  | "INCREMENTAL";
+
 export interface SourceContext {
   requestId: string;
   now: string;
@@ -19,9 +27,7 @@ export interface SourceMetadata {
   id: string;
   kind: SourceKind;
   displayName: string;
-  supportsSearch: boolean;
-  supportsDetailFetch: boolean;
-  supportsIncrementalSync: boolean;
+  capabilities: readonly SourceCapability[];
 }
 
 export interface SearchQuery {
@@ -82,12 +88,13 @@ export type SourceErrorCode =
   | "INVALID_RESPONSE"
   | "UNSUPPORTED_QUERY"
   | "POLICY_BLOCKED"
+  | "VALIDATION_FAILED"
   | "UNKNOWN";
 
 export interface SourceError {
   code: SourceErrorCode;
   sourceId: string;
-  operation: "health" | "search" | "fetch" | "normalize";
+  operation: "health" | "search" | "fetch" | "ingest" | "normalize";
   retryable: boolean;
   retryAfterMs?: number;
   ref?: SourceJobRef;
@@ -105,10 +112,23 @@ export interface SourceHealth {
   message?: string;
 }
 
-export interface SourceAdapter {
+export interface JobSource {
   readonly metadata: SourceMetadata;
   healthCheck(ctx: SourceContext): Promise<SourceResult<SourceHealth>>;
+}
+
+export interface SearchableJobSource extends JobSource {
   search(query: SearchQuery, ctx: SourceContext): Promise<SourceResult<SearchPage>>;
+}
+
+export interface DetailJobSource extends JobSource {
   fetch(ref: SourceJobRef, ctx: SourceContext): Promise<SourceResult<RawPosting>>;
+}
+
+export interface ManualJobSource<TInput> extends JobSource {
+  ingest(input: TInput, ctx: SourceContext): Promise<SourceResult<RawPosting>>;
+}
+
+export interface NormalizingJobSource extends JobSource {
   normalize(raw: RawPosting, ctx: SourceContext): Promise<SourceResult<JobPostingDraft>>;
 }
