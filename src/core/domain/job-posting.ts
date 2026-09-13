@@ -17,11 +17,15 @@ export interface JobPosting {
   locations: string[];
   requiredSkills: string[];
   preferredSkills: string[];
+  employmentTypes?: string[];
   experienceRequirement?: {
     minYears?: number;
     maxYears?: number;
     rawText?: string;
   };
+  postedAt?: ISODateTime;
+  expiresAt?: ISODateTime;
+  contentCompleteness?: "full" | "partial" | "unknown";
   status: "open" | "closed" | "unknown";
   fullText: string;
   fingerprint: string;
