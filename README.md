@@ -21,7 +21,7 @@ See `docs/workflow.md` for the current operational flow and `docs/architecture.m
 
 ## Current implementation
 
-JobLens is currently `v0.1.0-alpha.18` and is in release hardening before the first release candidate.
+JobLens is currently `v0.1.0-rc.1` and is in release-candidate validation for the first stable release.
 
 Implemented foundations include:
 
@@ -61,7 +61,7 @@ After downloading the release tarball:
 ```bash
 mkdir joblens-local && cd joblens-local
 npm init -y
-npm install /path/to/joblens-0.1.0.tgz
+npm install /path/to/joblens-0.1.0-rc.1.tgz
 
 export JOBLENS_WORKSPACE="$HOME/.joblens/my-search"
 
@@ -126,7 +126,7 @@ See `docs/conversational-tools.md` for the canonical tool list, local MCP setup,
 
 ## Private workspace
 
-A user workspace is deliberately separate from the public repository. `initializeWorkspace()` creates private runtime directories and persistent stores under the configured workspace root. The current alpha uses one JSON file per persisted entity with atomic replacement writes; the storage contract remains swappable so a later SQLite adapter can be introduced without changing domain workflows.
+A user workspace is deliberately separate from the public repository. `initializeWorkspace()` creates private runtime directories and persistent stores under the configured workspace root. The current RC uses one JSON file per persisted entity with atomic replacement writes; the storage contract remains swappable so a later SQLite adapter can be introduced without changing domain workflows.
 
 Do not put a real workspace inside a public clone.
 
