@@ -53,7 +53,7 @@ Reference: `docs/acceptance-v0.1.md`.
 - [x] Ranking v0.4 semantics are documented.
 - [x] v0.1 acceptance boundary is documented.
 - [x] CLI help lists every v0.1 command and required environment variables.
-- [x] A maintained `CHANGELOG.md` exists; finalize the `v0.1.0` section at stable release.
+- [x] A maintained `CHANGELOG.md` exists; the `v0.1.0` stable section is finalized on the release branch.
 - [x] `docs/architecture.md` and `docs/workflow.md` provide a consolidated current-v0.1 architecture/workflow path without requiring historical ranking docs to be read in order.
 - [x] Security/privacy release boundaries are documented in `SECURITY.md` and `docs/privacy-security.md`.
 - [x] Public workspace-template JSON examples are regression-checked against current profile/materialization contracts and current research/application/review/outcome shapes.
@@ -90,15 +90,17 @@ Separate real-world dogfooding may continue during RC. A dogfood finding blocks 
 
 ## 7. Stable v0.1.0 release
 
-- [ ] Set package/MCP version to `0.1.0`.
-- [ ] Finalize `CHANGELOG.md` and release notes.
-- [ ] Run the RC release gate one final time on the release commit.
+- [x] Set package/MCP version to `0.1.0` on the stable release branch.
+- [x] Finalize `CHANGELOG.md` and `docs/release-notes-v0.1.0.md`.
+- [ ] Run the RC release gate one final time on the stable release commit.
 - [ ] Merge release commit to `main` with green CI.
 - [ ] Create git tag `v0.1.0`.
 - [ ] Create GitHub Release from `v0.1.0`.
 - [ ] Attach the release-gated npm-format `.tgz` to the GitHub Release.
 - [ ] Verify installation from the released distribution, not the repository checkout.
 - [ ] Verify `main` and release tag point to the intended release contents.
+
+Stable release preparation intentionally stops before merge/tag/publication until the final release gate is green and the release is explicitly executed.
 
 ## Explicitly not required for v0.1.0
 
