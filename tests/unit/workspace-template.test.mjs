@@ -3,9 +3,9 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   getJobLensToolDefinition,
-  getMcpInputSchema,
   parseCandidateProfile,
 } from "../../dist/index.js";
+import { getMcpInputSchema } from "../../dist/mcp/input-schema.js";
 
 async function json(path) {
   return JSON.parse(await readFile(path, "utf8"));
