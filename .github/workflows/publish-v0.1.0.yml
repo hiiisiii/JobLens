@@ -1,0 +1,84 @@
+name: publish-v0.1.0
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/publish-v0.1.0.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm audit --audit-level=high
+      - name: Verify package and clean-install smoke
+        run: bash scripts/release-clean-install-smoke.sh
+      - name: Verify stable version
+        run: |
+          test "$(node -p "require('./package.json').version")" = "0.1.0"
+          grep -q 'version: options.serverVersion ?? "0.1.0"' src/mcp/server.ts
+      - name: Build release tarball
+        id: pack
+        run: |
+          TARBALL="$(npm pack --silent | tail -n 1)"
+          test "$TARBALL" = "joblens-0.1.0.tgz"
+          echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
+      - name: Create v0.1.0 tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git ls-remote --exit-code --tags origin refs/tags/v0.1.0 >/dev/null 2>&1; then
+            echo "v0.1.0 already exists; refusing to retag"
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a v0.1.0 "$GITHUB_SHA" -m "JobLens v0.1.0"
+          git push origin refs/tags/v0.1.0
+      - name: Create GitHub Release and attach tarball
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: |
+          gh release create v0.1.0 "$TARBALL" \
+            --title "JobLens v0.1.0" \
+            --notes-file docs/release-notes-v0.1.0.md \
+            --verify-tag
+      - name: Smoke test published release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ASSET_DIR="$(mktemp -d)"
+          SMOKE_DIR="$(mktemp -d)"
+          gh release download v0.1.0 --pattern 'joblens-0.1.0.tgz' --dir "$ASSET_DIR"
+          test -s "$ASSET_DIR/joblens-0.1.0.tgz"
+          cd "$SMOKE_DIR"
+          npm init -y >/dev/null 2>&1
+          npm install "$ASSET_DIR/joblens-0.1.0.tgz" >/dev/null 2>&1
+          export JOBLENS_WORKSPACE="$SMOKE_DIR/private-workspace"
+          export JOBLENS_WORKSPACE_ID="published-release-smoke"
+          ./node_modules/.bin/joblens --help | grep -q "JobLens"
+          ./node_modules/.bin/joblens setup --profile "$SMOKE_DIR/node_modules/joblens/workspace-template/profile/candidate.example.json" >/dev/null
+          test -f "$JOBLENS_WORKSPACE/profile/candidate-profile.json"
+          cd "$GITHUB_WORKSPACE"
+          node scripts/mcp-installed-smoke.mjs "$SMOKE_DIR/node_modules/.bin/joblens-mcp" "$JOBLENS_WORKSPACE"
+      - name: Verify published release metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$(git rev-list -n 1 v0.1.0)" = "$GITHUB_SHA"
+          gh release view v0.1.0 --json tagName,isDraft,isPrerelease,assets > /tmp/release.json
+          node -e 'const r=require("/tmp/release.json"); if(r.tagName!=="v0.1.0"||r.isDraft||r.isPrerelease||!r.assets.some(a=>a.name==="joblens-0.1.0.tgz")) process.exit(1)'
