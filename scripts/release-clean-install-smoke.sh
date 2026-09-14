@@ -12,9 +12,10 @@ npm install "$ROOT/$TARBALL" >/dev/null 2>&1
 
 export JOBLENS_WORKSPACE="$SMOKE_DIR/private-workspace"
 export JOBLENS_WORKSPACE_ID="release-smoke"
+PACKAGE_ROOT="$SMOKE_DIR/node_modules/joblens"
 
 ./node_modules/.bin/joblens --help | grep -q "JobLens"
-./node_modules/.bin/joblens setup --profile "$ROOT/workspace-template/profile/candidate.example.json" >/dev/null
+./node_modules/.bin/joblens setup --profile "$PACKAGE_ROOT/workspace-template/profile/candidate.example.json" >/dev/null
 test -f "$JOBLENS_WORKSPACE/profile/candidate-profile.json"
 node -e 'const p=require(process.env.JOBLENS_WORKSPACE+"/profile/candidate-profile.json"); if(p.profileId!=="candidate-example") process.exit(1)'
 
