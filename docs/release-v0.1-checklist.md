@@ -92,7 +92,7 @@ Separate real-world dogfooding may continue during RC. A dogfood finding blocks 
 
 - [x] Set package/MCP version to `0.1.0` on the stable release branch.
 - [x] Finalize `CHANGELOG.md` and `docs/release-notes-v0.1.0.md`.
-- [ ] Run the RC release gate one final time on the stable release commit.
+- [x] Run the RC release gate one final time on the stable release commit (release branch CI run #304 passed on Node 20/22, including package and clean-install smoke checks).
 - [ ] Merge release commit to `main` with green CI.
 - [ ] Create git tag `v0.1.0`.
 - [ ] Create GitHub Release from `v0.1.0`.
