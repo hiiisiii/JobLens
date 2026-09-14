@@ -42,7 +42,7 @@ Reference: `docs/acceptance-v0.1.md`.
 - [x] Public source tree contains no private CandidateProfile or real resume/workspace files by design.
 - [x] Tool audit traces are metadata-only rather than raw prompt/document copies.
 - [x] JSON-directory storage rejects path-traversal entity ids.
-- [ ] Re-run repository scan for credentials, personal contact data, private workspace paths, and accidental fixtures.
+- [x] Repository code search was re-run against known personal identifiers, contact/link patterns, and private runtime path patterns; no tracked-code matches were found. This is a release audit, not a claim about Git history metadata.
 - [x] API-key handling was re-checked: environment templates contain placeholders only, Saramin adapter coverage verifies the access key is not emitted in normalized output, and tool traces do not persist raw payloads.
 - [x] Inspect package allowlist output: tests, source tree, `.env`, logs, caches, and workspace state are not in the dry-run package contents.
 - [x] Vulnerability-reporting process is documented in `SECURITY.md`.
@@ -54,25 +54,25 @@ Reference: `docs/acceptance-v0.1.md`.
 - [x] v0.1 acceptance boundary is documented.
 - [x] CLI help lists every v0.1 command and required environment variables.
 - [x] A maintained `CHANGELOG.md` exists; finalize the `v0.1.0` section at stable release.
-- [ ] Consolidate architecture/workflow documentation so a new user can understand the system without reading historical ranking docs in order.
+- [x] `docs/architecture.md` and `docs/workflow.md` provide a consolidated current-v0.1 architecture/workflow path without requiring historical ranking docs to be read in order.
 - [x] Security/privacy release boundaries are documented in `SECURITY.md` and `docs/privacy-security.md`.
-- [ ] Verify all workspace-template examples still match current schemas and commands.
-- [ ] Verify README quick start on a clean workspace from only published/release files.
+- [x] Public workspace-template JSON examples are regression-checked against current profile/materialization contracts and current research/application/review/outcome shapes.
+- [x] First-run release path is verified from the generated package contents in a clean temporary project; source-checkout development instructions remain separate from packaged installation.
 
 ## 5. Packaging and install verification
 
 - [x] Package has explicit publish contents.
 - [x] Package dry-run is part of CI.
-- [x] Actual `npm pack --dry-run` output has been inspected; the package is limited to compiled `dist`, public docs/templates, package metadata, license/notices, README, and changelog.
-- [ ] Install the generated tarball into a clean temporary project.
-- [ ] Verify installed `joblens --help`.
-- [ ] Verify installed `joblens` setup flow with a fresh private workspace.
-- [ ] Verify installed `joblens-mcp` starts and completes an MCP stdio handshake.
-- [ ] Decide whether v0.1.0 ships to npm, GitHub Releases only, or both.
+- [x] Actual `npm pack --dry-run` output has been inspected; the package is limited to compiled `dist`, public docs/templates, package metadata, license/notices, README, changelog, and security policy.
+- [x] Generated tarball installs into a clean temporary npm project in CI.
+- [x] Installed `joblens --help` executes successfully.
+- [x] Installed `joblens setup` imports the bundled synthetic CandidateProfile into a fresh private workspace and the persisted profile is read back.
+- [x] Installed `joblens-mcp` completes an MCP stdio handshake, lists canonical tools, and reads the profile persisted by installed CLI setup.
+- [x] v0.1.0 distribution is GitHub Releases plus an attached installable npm-format `.tgz`; public npm-registry publication is deferred post-v0.1. See `docs/release-distribution.md`.
 
 ## 6. Release Candidate gate
 
-Create `0.1.0-rc.1` only after sections 2-5 have no unresolved release blockers.
+Sections 2-5 have no unresolved release blocker. The next release step is `0.1.0-rc.1`.
 
 For each RC:
 
@@ -96,7 +96,7 @@ Separate real-world dogfooding may continue during RC. A dogfood finding blocks 
 - [ ] Merge release commit to `main` with green CI.
 - [ ] Create git tag `v0.1.0`.
 - [ ] Create GitHub Release from `v0.1.0`.
-- [ ] Publish to npm if npm distribution was selected.
+- [ ] Attach the release-gated npm-format `.tgz` to the GitHub Release.
 - [ ] Verify installation from the released distribution, not the repository checkout.
 - [ ] Verify `main` and release tag point to the intended release contents.
 
@@ -108,6 +108,7 @@ The following are post-v0.1 integration/product work unless testing exposes a co
 - additional Korean source adapters;
 - remote/cloud MCP transport, authentication, TLS, or workspace authorization;
 - automatic external application submission;
+- public npm-registry publication;
 - ranking-policy improvements beyond release-blocking correctness fixes;
 - outcome-driven ranking recalibration;
 - long-running real-user job-search dogfooding results.

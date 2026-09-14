@@ -8,6 +8,8 @@ It is designed around a simple interaction model: users can talk to an AI client
 
 `setup -> discover -> verify/materialize when needed -> rank -> research -> prepare -> review -> READY -> user submission -> outcome`
 
+See `docs/workflow.md` for the current operational flow and `docs/architecture.md` for the v0.1 architecture boundary.
+
 ## Why JobLens
 
 - **Multi-source discovery**: job-board APIs, web search, company career pages, and manual posting input can plug into the same source boundary.
@@ -19,7 +21,7 @@ It is designed around a simple interaction model: users can talk to an AI client
 
 ## Current implementation
 
-JobLens is currently `v0.1.0-alpha.18`.
+JobLens is currently `v0.1.0-alpha.18` and is in release hardening before the first release candidate.
 
 Implemented foundations include:
 
@@ -41,18 +43,40 @@ Implemented foundations include:
 - event-based interview, offer, completion, and withdrawal lifecycle tracking with idempotent outcome handling;
 - private workspace storage for discovery hits, jobs, evaluations, opportunities, research, evidence, applications, packages, and reviews;
 - executable `setup`, `discover`, `materialize`, `rank`, `research`, `prepare`, `review`, and `outcome` CLI commands;
-- CLI integration coverage for verified-hit materialization -> ranking and outcome dispatch;
 - transport-neutral `JobLensToolService` exposing canonical read/workflow tools to conversational clients;
-- public `JOBLENS_TOOL_DEFINITIONS` manifest with tool descriptions, approval classes, and JSON-schema-shaped inputs;
+- public `JOBLENS_TOOL_DEFINITIONS` manifest with tool descriptions, approval classes, and validated per-tool inputs;
 - actual local MCP stdio server built on the official MCP TypeScript SDK v2;
-- `joblens-mcp` executable that maps MCP tool calls into the same `JobLensToolService` used by other clients;
 - metadata-only tool-call audit traces under the private workspace, without raw prompts/documents/secrets;
-- MCP stdio integration coverage in addition to ordinary typecheck/unit tests;
-- a durable v0.1 full-workflow acceptance test covering verified discovery -> ranking -> research -> preparation -> review/grounding -> READY -> explicit user-confirmed APPLIED recording.
+- a durable v0.1 full-workflow acceptance test covering verified discovery -> ranking -> research -> preparation -> review/grounding -> READY -> explicit user-confirmed APPLIED recording;
+- release-gate coverage for Node 20/22, dependency audit, package allowlist, workspace templates, tarball clean install, installed CLI setup, and installed MCP stdio handshake.
 
-See `docs/acceptance-v0.1.md` for the v0.1 acceptance boundary and the live-derived deterministic fixture used by CI.
+See `docs/acceptance-v0.1.md` for the v0.1 acceptance boundary.
 
-## CLI quick start
+## Install from a GitHub Release
+
+The v0.1 distribution target is GitHub Releases with an installable npm-format `.tgz` attached. Public npm-registry publication is intentionally deferred; see `docs/release-distribution.md`.
+
+After downloading the release tarball:
+
+```bash
+mkdir joblens-local && cd joblens-local
+npm init -y
+npm install /path/to/joblens-0.1.0.tgz
+
+export JOBLENS_WORKSPACE="$HOME/.joblens/my-search"
+
+./node_modules/.bin/joblens --help
+./node_modules/.bin/joblens setup \
+  --profile ./node_modules/joblens/workspace-template/profile/candidate.example.json
+```
+
+The bundled CandidateProfile is synthetic and exists only to prove first-run behavior. Replace it with your own evidence-backed profile stored in a private location before real use. Keep `JOBLENS_WORKSPACE` outside public repositories.
+
+The release gate installs the generated tarball into a clean temporary npm project and verifies the installed CLI help/setup path plus an installed `joblens-mcp` stdio handshake.
+
+## Source-checkout CLI quick start
+
+For development from a repository checkout:
 
 ```bash
 npm install
@@ -76,20 +100,17 @@ Saramin structured discovery is executable when `SARAMIN_ACCESS_KEY` is supplied
 
 ## MCP quick start
 
-JobLens includes a local stdio MCP adapter:
+JobLens includes a local stdio MCP adapter. With the release package installed:
 
 ```bash
-npm install
-npm run build
-
 export JOBLENS_WORKSPACE="$HOME/.joblens/my-search"
 export JOBLENS_WORKSPACE_ID="my-search"
-node dist/mcp/bin.js
+./node_modules/.bin/joblens-mcp
 ```
 
-Installed/package-linked use can invoke the `joblens-mcp` bin. Local MCP hosts spawn this process and communicate over stdio; users do not need to operate the JobLens CLI for each workflow step.
+From a source checkout, build first and run `node dist/mcp/bin.js` instead. Local MCP hosts spawn the process and communicate over stdio; users do not need to operate the JobLens CLI for each workflow step.
 
-The MCP layer is deliberately thin: request ids are generated server-side, calls are forwarded into `JobLensToolService`, and the same approval/grounding/lifecycle rules apply regardless of client. The adapter uses the official `@modelcontextprotocol/server` v2 package.
+The MCP layer is deliberately thin: request ids are generated server-side, per-tool inputs are validated from the canonical tool manifest, calls are forwarded into `JobLensToolService`, and the same approval/grounding/lifecycle rules apply regardless of client. The adapter uses the official `@modelcontextprotocol/server` v2 package.
 
 **Important:** local stdio MCP does not expose a private workstation to a cloud ChatGPT session. A future remote ChatGPT/App deployment still needs a remote transport plus authentication, TLS, and workspace authorization.
 
@@ -159,9 +180,9 @@ npm run typecheck
 npm test
 ```
 
-## Privacy
+## Privacy and security
 
-Do not commit a real user workspace to this public repository. The `workspace-template/` directory contains examples only.
+Do not commit a real user workspace to this public repository. The `workspace-template/` directory contains synthetic examples only. See `SECURITY.md` and `docs/privacy-security.md` for the release privacy/security boundary and vulnerability-reporting process.
 
 ## License and upstream inspiration
 
