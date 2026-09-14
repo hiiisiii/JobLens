@@ -29,7 +29,7 @@ export function createJobLensMcpServer(options: JobLensMcpServerOptions): McpSer
   const service = new JobLensToolService(options.workspaceDir, options.env ?? process.env);
   const server = new McpServer({
     name: options.serverName ?? "joblens",
-    version: options.serverVersion ?? "0.1.0-alpha.17",
+    version: options.serverVersion ?? "0.1.0-alpha.18",
   });
 
   for (const definition of JOBLENS_TOOL_DEFINITIONS) {
