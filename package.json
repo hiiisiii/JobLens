@@ -5,9 +5,25 @@
   "type": "module",
   "description": "Open-source AI workflow for discovering, researching, ranking, and preparing job applications across multiple sources.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hiiisiii/JobLens.git"
+  },
+  "homepage": "https://github.com/hiiisiii/JobLens#readme",
+  "bugs": {
+    "url": "https://github.com/hiiisiii/JobLens/issues"
+  },
   "engines": {
     "node": ">=20"
   },
+  "files": [
+    "dist/",
+    "docs/",
+    "workspace-template/",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md"
+  ],
   "bin": {
     "joblens": "dist/cli/bin.js",
     "joblens-mcp": "dist/mcp/bin.js"
@@ -17,6 +33,8 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test tests/unit/*.test.mjs",
+    "prepack": "npm run clean && npm run build",
+    "pack:check": "npm pack --dry-run",
     "joblens": "npm run build --silent && node dist/cli/bin.js",
     "mcp": "npm run build --silent && node dist/mcp/bin.js"
   },
