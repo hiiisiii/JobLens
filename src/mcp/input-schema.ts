@@ -51,7 +51,7 @@ function fromJsonSchema(schema: JsonSchemaLike): z.ZodTypeAny {
 
   if (schema.type === "object") {
     const required = new Set(schema.required ?? []);
-    const shape: z.ZodRawShape = {};
+    const shape: Record<string, z.ZodTypeAny> = {};
     for (const [name, propertySchema] of Object.entries(schema.properties ?? {})) {
       const property = fromJsonSchema(propertySchema);
       shape[name] = required.has(name) ? property : property.optional();
@@ -63,10 +63,10 @@ function fromJsonSchema(schema: JsonSchemaLike): z.ZodTypeAny {
   return z.unknown();
 }
 
-export function getMcpInputSchema(definition: JobLensToolDefinition): z.ZodObject<z.ZodRawShape> {
+export function getMcpInputSchema(definition: JobLensToolDefinition): z.ZodObject<Record<string, z.ZodTypeAny>> {
   const schema = fromJsonSchema(definition.inputSchema as JsonSchemaLike);
   if (!(schema instanceof z.ZodObject)) {
     throw new Error(`MCP tool ${definition.name} must expose an object input schema`);
   }
-  return schema;
+  return schema as z.ZodObject<Record<string, z.ZodTypeAny>>;
 }
