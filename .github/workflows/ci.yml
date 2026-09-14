@@ -21,3 +21,6 @@ jobs:
         if: matrix.node-version == 22
       - run: npm run pack:check
         if: matrix.node-version == 22
+      - name: Clean-install release tarball smoke
+        if: matrix.node-version == 22
+        run: bash scripts/release-clean-install-smoke.sh
