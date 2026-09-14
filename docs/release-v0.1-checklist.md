@@ -32,10 +32,10 @@ Reference: `docs/acceptance-v0.1.md`.
 - [x] `prepack` rebuilds `dist` from source.
 - [x] CI performs `npm pack --dry-run` packaging validation.
 - [x] CI covers the declared Node.js 20+ baseline with Node 20 and 22.
+- [x] CI runs `npm audit --audit-level=high`; current hardening run passed with no blocking dependency finding.
 - [ ] Audit CLI validation/error messages across every command for consistent failure behavior.
 - [ ] Re-check lifecycle/idempotency failure cases for materialize, rank, research, prepare, review, and outcome.
 - [ ] Replace or formally accept the permissive MCP catch-all input schema for v0.1.
-- [ ] Run a final dependency/security audit and document any accepted findings.
 
 ## 3. Privacy and security release audit
 
@@ -44,7 +44,7 @@ Reference: `docs/acceptance-v0.1.md`.
 - [x] JSON-directory storage rejects path-traversal entity ids.
 - [ ] Re-run repository scan for credentials, personal contact data, private workspace paths, and accidental fixtures.
 - [ ] Verify API keys are not emitted in normal errors, command output, or audit traces.
-- [ ] Verify package allowlist excludes tests, source-only private fixtures, `.env`, logs, and workspace state.
+- [x] Inspect package allowlist output: tests, source tree, `.env`, logs, caches, and workspace state are not in the dry-run package contents.
 - [ ] Add/document the supported vulnerability-reporting process.
 
 ## 4. Documentation and first-run UX
@@ -53,8 +53,8 @@ Reference: `docs/acceptance-v0.1.md`.
 - [x] Ranking v0.4 semantics are documented.
 - [x] v0.1 acceptance boundary is documented.
 - [x] CLI help lists every v0.1 command and required environment variables.
+- [x] A maintained `CHANGELOG.md` exists; finalize the `v0.1.0` section at stable release.
 - [ ] Consolidate architecture/workflow documentation so a new user can understand the system without reading historical ranking docs in order.
-- [ ] Add a stable `CHANGELOG.md` entry for `v0.1.0` before release.
 - [ ] Add security/privacy release documentation.
 - [ ] Verify all workspace-template examples still match current schemas and commands.
 - [ ] Verify README quick start on a clean workspace from only published/release files.
@@ -63,7 +63,7 @@ Reference: `docs/acceptance-v0.1.md`.
 
 - [x] Package has explicit publish contents.
 - [x] Package dry-run is part of CI.
-- [ ] Inspect the actual `npm pack --dry-run` file list and package size before RC.
+- [x] Actual `npm pack --dry-run` output has been inspected; the package is limited to compiled `dist`, public docs/templates, package metadata, license/notices, README, and changelog.
 - [ ] Install the generated tarball into a clean temporary project.
 - [ ] Verify installed `joblens --help`.
 - [ ] Verify installed `joblens` setup flow with a fresh private workspace.
