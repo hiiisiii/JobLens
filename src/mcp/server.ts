@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/server";
-import * as z from "zod/v4";
 import type { RuntimeEnvironment } from "../config/runtime-config.js";
 import { JobLensToolService, type JobLensToolCall, type JobLensToolName } from "../tooling/joblens-tool-service.js";
 import { JOBLENS_TOOL_DEFINITIONS } from "../tooling/tool-manifest.js";
+import { getMcpInputSchema } from "./input-schema.js";
 
 export interface JobLensMcpServerOptions {
   workspaceDir: string;
@@ -12,8 +12,6 @@ export interface JobLensMcpServerOptions {
   serverName?: string;
   serverVersion?: string;
 }
-
-const permissiveObjectSchema = z.object({}).catchall(z.unknown());
 
 function toToolCall(name: JobLensToolName, args: Record<string, unknown>): JobLensToolCall {
   return { tool: name, input: args } as unknown as JobLensToolCall;
@@ -37,7 +35,7 @@ export function createJobLensMcpServer(options: JobLensMcpServerOptions): McpSer
       definition.name,
       {
         description: `${definition.description} Approval class: ${definition.approvalClass}.`,
-        inputSchema: permissiveObjectSchema,
+        inputSchema: getMcpInputSchema(definition),
       },
       async (args) => {
         const requestId = `mcp-${randomUUID()}`;
