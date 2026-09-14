@@ -19,7 +19,7 @@ It is designed around a simple interaction model: users can talk to an AI client
 
 ## Current implementation
 
-JobLens is currently `v0.1.0-alpha.17`.
+JobLens is currently `v0.1.0-alpha.18`.
 
 Implemented foundations include:
 
@@ -36,6 +36,7 @@ Implemented foundations include:
 - persistent JobEvaluation and Opportunity entities with stable identities across reranking;
 - evidence-grounded research with verified facts, analysis, community signals, risks, opportunities, and unresolved questions;
 - explicit approval before application preparation, frozen source snapshots, evidence-linked artifact claims, reviewer + grounding audit, and revision lifecycle;
+- candidate grounding that freezes both `skills[].evidenceIds` and structured `experienceEvidence[].evidenceIds` alongside job/research evidence;
 - explicit user-confirmed READY -> APPLIED recording with immutable SubmissionSnapshot metadata;
 - event-based interview, offer, completion, and withdrawal lifecycle tracking with idempotent outcome handling;
 - private workspace storage for discovery hits, jobs, evaluations, opportunities, research, evidence, applications, packages, and reviews;
@@ -46,7 +47,10 @@ Implemented foundations include:
 - actual local MCP stdio server built on the official MCP TypeScript SDK v2;
 - `joblens-mcp` executable that maps MCP tool calls into the same `JobLensToolService` used by other clients;
 - metadata-only tool-call audit traces under the private workspace, without raw prompts/documents/secrets;
-- MCP stdio integration coverage in addition to ordinary typecheck/unit tests.
+- MCP stdio integration coverage in addition to ordinary typecheck/unit tests;
+- a durable v0.1 full-workflow acceptance test covering verified discovery -> ranking -> research -> preparation -> review/grounding -> READY -> explicit user-confirmed APPLIED recording.
+
+See `docs/acceptance-v0.1.md` for the v0.1 acceptance boundary and the live-derived deterministic fixture used by CI.
 
 ## CLI quick start
 
@@ -127,7 +131,7 @@ Raw evidence and findings are separate. Each finding must reference evidence key
 
 ## Application preparation and grounding
 
-`prepare` requires explicit approval; fit score alone can never create an application. Preparation freezes the exact CandidateProfile version, JobPosting, and CompanyResearch used for the draft. Each declared factual claim must reference the frozen evidence set.
+`prepare` requires explicit approval; fit score alone can never create an application. Preparation freezes the exact CandidateProfile version, JobPosting, and CompanyResearch used for the draft. The frozen candidate evidence includes both skill evidence ids and structured experience evidence ids, so project/work evidence used by ranking can also ground application claims. Each declared factual claim must reference that frozen candidate/job/research evidence set.
 
 `review` combines an independent reviewer verdict with an automatic grounding audit. READY requires reviewer `PASS` and zero grounding blockers. The core audit validates the declared factual-claim inventory and hashes; it does not pretend to infer every factual sentence from arbitrary prose, so an AI/human reviewer must surface undeclared unsupported claims as BLOCKER findings.
 
