@@ -6,6 +6,25 @@ The project follows semantic versioning for stable releases. Pre-release alpha a
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-14
+
+### Stable release
+
+- Promoted the release-candidate contract to the first stable JobLens release without adding new product features after RC1.
+- Finalized the stable package and MCP advertised version as `0.1.0`.
+- Finalized public release notes and GitHub Release distribution instructions.
+- Retained the v0.1 local-first workflow, privacy boundary, explicit user-approval requirements, and no-auto-submit policy validated by RC1.
+
+### Verification
+
+- Node.js 20 and 22 typecheck and full automated suites passed on the RC release gate.
+- 96/96 automated tests passed, including the full verified-discovery -> READY -> explicit user-confirmed APPLIED acceptance path.
+- Node 22 dependency audit reported 0 vulnerabilities.
+- `npm pack --dry-run`, generated-tarball clean install, installed CLI setup, and installed MCP stdio smoke verification passed.
+- The pre-release privacy/security audit had no unresolved release blocker.
+
+See `docs/release-notes-v0.1.0.md` for user-facing release notes and `docs/release-v0.1-checklist.md` for the release gate.
+
 ## [0.1.0-rc.1] - 2026-09-14
 
 ### Release candidate
