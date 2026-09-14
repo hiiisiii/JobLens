@@ -43,7 +43,10 @@ function clone<T>(value: T): T {
 }
 
 function profileEvidenceIds(profile: CandidateProfile): string[] {
-  return [...new Set(profile.skills.flatMap((skill) => skill.evidenceIds).filter(Boolean))];
+  return [...new Set([
+    ...profile.skills.flatMap((skill) => skill.evidenceIds),
+    ...(profile.experienceEvidence ?? []).flatMap((experience) => experience.evidenceIds),
+  ].filter(Boolean))];
 }
 
 function validateArtifacts(artifacts: ArtifactDraftInput[]): void {
