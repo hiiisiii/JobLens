@@ -14,8 +14,9 @@ export JOBLENS_WORKSPACE="$SMOKE_DIR/private-workspace"
 export JOBLENS_WORKSPACE_ID="release-smoke"
 
 ./node_modules/.bin/joblens --help | grep -q "JobLens"
-./node_modules/.bin/joblens setup --profile "$ROOT/workspace-template/profile/candidate.example.json" | grep -q "candidate-example"
+./node_modules/.bin/joblens setup --profile "$ROOT/workspace-template/profile/candidate.example.json" >/dev/null
 test -f "$JOBLENS_WORKSPACE/profile/candidate-profile.json"
+node -e 'const p=require(process.env.JOBLENS_WORKSPACE+"/profile/candidate-profile.json"); if(p.profileId!=="candidate-example") process.exit(1)'
 
 node "$ROOT/scripts/mcp-installed-smoke.mjs" "$SMOKE_DIR/node_modules/.bin/joblens-mcp" "$JOBLENS_WORKSPACE"
 
