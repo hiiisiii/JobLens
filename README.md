@@ -21,7 +21,7 @@ See `docs/workflow.md` for the current operational flow and `docs/architecture.m
 
 ## Current implementation
 
-JobLens is currently `v0.1.0-rc.1` and is in release-candidate validation for the first stable release.
+JobLens is currently `v0.1.0`, the first stable release of the local-first workflow engine.
 
 Implemented foundations include:
 
@@ -50,7 +50,7 @@ Implemented foundations include:
 - a durable v0.1 full-workflow acceptance test covering verified discovery -> ranking -> research -> preparation -> review/grounding -> READY -> explicit user-confirmed APPLIED recording;
 - release-gate coverage for Node 20/22, dependency audit, package allowlist, workspace templates, tarball clean install, installed CLI setup, and installed MCP stdio handshake.
 
-See `docs/acceptance-v0.1.md` for the v0.1 acceptance boundary.
+See `docs/acceptance-v0.1.md` for the v0.1 acceptance boundary and `docs/release-notes-v0.1.0.md` for the stable release notes.
 
 ## Install from a GitHub Release
 
@@ -61,7 +61,7 @@ After downloading the release tarball:
 ```bash
 mkdir joblens-local && cd joblens-local
 npm init -y
-npm install /path/to/joblens-0.1.0-rc.1.tgz
+npm install /path/to/joblens-0.1.0.tgz
 
 export JOBLENS_WORKSPACE="$HOME/.joblens/my-search"
 
@@ -126,7 +126,7 @@ See `docs/conversational-tools.md` for the canonical tool list, local MCP setup,
 
 ## Private workspace
 
-A user workspace is deliberately separate from the public repository. `initializeWorkspace()` creates private runtime directories and persistent stores under the configured workspace root. The current RC uses one JSON file per persisted entity with atomic replacement writes; the storage contract remains swappable so a later SQLite adapter can be introduced without changing domain workflows.
+A user workspace is deliberately separate from the public repository. `initializeWorkspace()` creates private runtime directories and persistent stores under the configured workspace root. The current v0.1 release uses one JSON file per persisted entity with atomic replacement writes; the storage contract remains swappable so a later SQLite adapter can be introduced without changing domain workflows.
 
 Do not put a real workspace inside a public clone.
 
