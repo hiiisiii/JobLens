@@ -72,19 +72,19 @@ Reference: `docs/acceptance-v0.1.md`.
 
 ## 6. Release Candidate gate
 
-Sections 2-5 have no unresolved release blocker. The next release step is `0.1.0-rc.1`.
+`0.1.0-rc.1` passed the automated release-candidate gate on the release branch. Only release blockers should change the v0.1 line after this point.
 
-For each RC:
+For RC1:
 
-- [ ] Version is `0.1.0-rc.N` in package and MCP advertised version.
-- [ ] Typecheck passes on supported CI matrix.
-- [ ] Full automated test suite passes on supported CI matrix.
-- [ ] Package dry-run passes.
-- [ ] Clean-install CLI smoke test passes.
-- [ ] MCP smoke/integration test passes.
-- [ ] Full workflow acceptance test passes.
-- [ ] Privacy/security audit has no unresolved blocker.
-- [ ] Only blocker fixes are accepted after RC starts; feature additions move to v0.2.
+- [x] Version is `0.1.0-rc.1` in package and MCP advertised version.
+- [x] Typecheck passes on supported CI matrix.
+- [x] Full automated test suite passes on supported CI matrix.
+- [x] Package dry-run passes.
+- [x] Clean-install CLI smoke test passes.
+- [x] MCP smoke/integration test passes.
+- [x] Full workflow acceptance test passes.
+- [x] Privacy/security audit has no unresolved blocker.
+- [x] Only blocker fixes are accepted after RC starts; feature additions move to v0.2.
 
 Separate real-world dogfooding may continue during RC. A dogfood finding blocks release only when it demonstrates a v0.1 correctness, privacy, durability, approval, or package-usability defect.
 

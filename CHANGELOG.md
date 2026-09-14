@@ -6,13 +6,18 @@ The project follows semantic versioning for stable releases. Pre-release alpha a
 
 ## [Unreleased]
 
-### Release hardening
+## [0.1.0-rc.1] - 2026-09-14
 
-- Added first-run CLI help for empty input, `--help`, `-h`, and `help`.
-- Added npm package repository/homepage/issue metadata and an explicit publish allowlist.
-- Added `prepack` build and `npm pack --dry-run` validation.
-- Expanded CI to Node.js 20 and 22, matching the declared `node >=20` engine baseline.
-- Added the v0.1 release checklist and release-blocker definition.
+### Release candidate
+
+- Promoted the v0.1 line from alpha hardening to the first release candidate.
+- Replaced permissive MCP catch-all inputs with strict manifest-derived per-tool validation.
+- Added release regression coverage for CLI validation and lifecycle/idempotency failure paths.
+- Added metadata-only tool audit checks, path-traversal storage protection coverage, and release privacy/security documentation.
+- Added public workspace-template contract checks for profile, materialization, research, application, review, and outcome examples.
+- Added generated-tarball clean-install verification covering installed `joblens --help`, installed `joblens setup`, persisted profile readback, and installed `joblens-mcp` stdio handshake.
+- Consolidated current v0.1 workflow and architecture documentation and separated source-checkout instructions from packaged-release installation.
+- Selected GitHub Releases plus an attached npm-format `.tgz` as the v0.1 distribution path; public npm-registry publication remains post-v0.1 work.
 
 ## [0.1.0-alpha.18] - 2026-09-14
 
