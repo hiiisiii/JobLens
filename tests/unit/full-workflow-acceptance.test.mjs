@@ -197,7 +197,7 @@ test("v0.1 acceptance: verified discovery reaches READY and records explicit use
       packageId: prepared.package.packageId,
       reviewInput: {
         status: "PASS",
-        findings: [{ severity: "WARNING", category: "gap", message: "Do not imply NestJS or Docker project experience unless separately evidenced." }],
+        findings: [{ severity: "WARNING", category: "relevance", message: "Do not imply NestJS or Docker project experience unless separately evidenced." }],
       },
       applicationStore: stores.applications,
       packageStore: stores.packages,
