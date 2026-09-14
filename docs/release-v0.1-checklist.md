@@ -33,9 +33,9 @@ Reference: `docs/acceptance-v0.1.md`.
 - [x] CI performs `npm pack --dry-run` packaging validation.
 - [x] CI covers the declared Node.js 20+ baseline with Node 20 and 22.
 - [x] CI runs `npm audit --audit-level=high`; current hardening run passed with no blocking dependency finding.
-- [ ] Audit CLI validation/error messages across every command for consistent failure behavior.
-- [ ] Re-check lifecycle/idempotency failure cases for materialize, rank, research, prepare, review, and outcome.
-- [ ] Replace or formally accept the permissive MCP catch-all input schema for v0.1.
+- [x] CLI validation/error behavior is regression-tested for discover, materialize, research, prepare, review, and outcome required inputs; setup/rank remain valid argument-light commands.
+- [x] Lifecycle/idempotency failure cases were re-checked across materialization, ranking, research, preparation/review, transition guards, and outcome recording through the existing regression suite plus full-workflow acceptance.
+- [x] MCP no longer uses one permissive catch-all schema: each tool input is validated from the canonical manifest, with strict top-level keys, required fields, enum/const checks, and numeric/string constraints.
 
 ## 3. Privacy and security release audit
 
@@ -43,9 +43,9 @@ Reference: `docs/acceptance-v0.1.md`.
 - [x] Tool audit traces are metadata-only rather than raw prompt/document copies.
 - [x] JSON-directory storage rejects path-traversal entity ids.
 - [ ] Re-run repository scan for credentials, personal contact data, private workspace paths, and accidental fixtures.
-- [ ] Verify API keys are not emitted in normal errors, command output, or audit traces.
+- [x] API-key handling was re-checked: environment templates contain placeholders only, Saramin adapter coverage verifies the access key is not emitted in normalized output, and tool traces do not persist raw payloads.
 - [x] Inspect package allowlist output: tests, source tree, `.env`, logs, caches, and workspace state are not in the dry-run package contents.
-- [ ] Add/document the supported vulnerability-reporting process.
+- [x] Vulnerability-reporting process is documented in `SECURITY.md`.
 
 ## 4. Documentation and first-run UX
 
@@ -55,7 +55,7 @@ Reference: `docs/acceptance-v0.1.md`.
 - [x] CLI help lists every v0.1 command and required environment variables.
 - [x] A maintained `CHANGELOG.md` exists; finalize the `v0.1.0` section at stable release.
 - [ ] Consolidate architecture/workflow documentation so a new user can understand the system without reading historical ranking docs in order.
-- [ ] Add security/privacy release documentation.
+- [x] Security/privacy release boundaries are documented in `SECURITY.md` and `docs/privacy-security.md`.
 - [ ] Verify all workspace-template examples still match current schemas and commands.
 - [ ] Verify README quick start on a clean workspace from only published/release files.
 
